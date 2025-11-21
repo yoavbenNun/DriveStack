@@ -42,7 +42,8 @@ TEST_F(GetCommandTest, PrintsDecompressedContent) {
     writeCompressedFile(validFilename, original);
 
     testing::internal::CaptureStdout();
-    GetCommand(validFilename);
+    GetCommand cmd;
+    cmd.get(validFilename);
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_EQ(output, original + "\n");
@@ -51,7 +52,8 @@ TEST_F(GetCommandTest, PrintsDecompressedContent) {
 // TEST 2: File does not exist have no output
 TEST_F(GetCommandTest, NonExistingFileProducesNoOutput) {
     testing::internal::CaptureStdout();
-    GetCommand(validFilename);   // file not created
+    GetCommand cmd;
+    cmd.get(validFilename);;   // file not created
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_TRUE(output.empty());
@@ -65,7 +67,8 @@ TEST_F(GetCommandTest, FilenameWithSpacesIsIgnored) {
     out.close();
 
     testing::internal::CaptureStdout();
-    GetCommand(invalidFilename);
+    GetCommand cmd;
+    cmd.get(validFilename);
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_TRUE(output.empty());
@@ -88,7 +91,8 @@ TEST(GetCommandStandaloneTest, WorksWithoutEnvironmentVariable) {
     out.close();
 
     testing::internal::CaptureStdout();
-    GetCommand(filename);
+    GetCommand cmd;
+    cmd.get(filename);
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_EQ(output, original + "\n");
@@ -105,7 +109,8 @@ TEST_F(GetCommandTest, ReadsOnlyFirstLine) {
     out.close();
 
     testing::internal::CaptureStdout();
-    GetCommand(validFilename);
+    GetCommand cmd;
+    cmd.get(validFilename);
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_EQ(output, "FIRST\n");

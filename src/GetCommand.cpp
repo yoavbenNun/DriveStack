@@ -11,7 +11,7 @@
  * @return The decompressed content of the file.
  */
 
- void get(const std::string& filename ){
+ void GetCommand::get(const std::string& filename ){
     if(filename.find(' ') != std::string::npos){
         return;
     } // Ignore the command by doing nothing
