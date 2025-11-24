@@ -15,7 +15,7 @@ namespace RLE {
     std::string compress(const std::string& text);
 
     // TODO: We will add the declaration for the decompress function here later
-    // std::string decompress(const std::string& compressedText);
+    std::string decompress(const std::string& compressedText);
 
 } // namespace RLE
 
