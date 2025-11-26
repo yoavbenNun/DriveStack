@@ -7,14 +7,27 @@
 #include "../src/GetCommand.h"
 #include "../src/RLE.h"
 
+// --- Cross-platform environment setter ---
+static void setEnvVar(const char* name, const char* value) {
+#ifdef _WIN32
+    // Windows uses "_putenv" and expects NAME=VALUE
+    std::string envStr = std::string(name) + "=" + (value ? value : "");
+    _putenv(envStr.c_str());
+#else
+    if (value)
+        setenv(name, value, 1);
+    else
+        unsetenv(name);
+#endif
+}
+
 class GetCommandTest : public ::testing::Test {
 protected:
     const char* validFilename = "test_file.txt";
-    const char* invalidFilename = "my test file.txt";  //if contains space so ignored
+    const char* invalidFilename = "my test file.txt";
 
     void SetUp() override {
-        // Set working directory to the current folder
-        _putenv("CLI_SAVE_PATH=./");
+        setEnvVar("CLI_SAVE_PATH", "./");
 
         // Clean the files before each test
         std::remove(validFilename);
@@ -27,18 +40,16 @@ protected:
         std::remove(invalidFilename);
     }
 
-    // helper: write compressed content (file)
+    // helper to write compressed content
     void writeCompressedFile(const char* filename, const std::string& content) {
-        std::string compressed = RLE::compress(content);
         std::ofstream out(filename);
-        out << compressed << std::endl;
-        out.close();
+        out << RLE::compress(content) << std::endl;
     }
 };
 
 // TEST 1: Reading an existing file works
 TEST_F(GetCommandTest, PrintsDecompressedContent) {
-    std::string original = "AAABBC";  // what we expect after decompress
+    std::string original = "AAABBC";
     writeCompressedFile(validFilename, original);
 
     testing::internal::CaptureStdout();
@@ -49,35 +60,33 @@ TEST_F(GetCommandTest, PrintsDecompressedContent) {
     EXPECT_EQ(output, original + "\n");
 }
 
-// TEST 2: File does not exist have no output
+// TEST 2: non-existing file → no output
 TEST_F(GetCommandTest, NonExistingFileProducesNoOutput) {
     testing::internal::CaptureStdout();
     GetCommand cmd;
-    cmd.get(validFilename);;   // file not created
+    cmd.get(validFilename); // file doesn't exist
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_TRUE(output.empty());
 }
 
-// TEST 3: Filename with spaces do ignored command
+// TEST 3: filename with spaces → ignored
 TEST_F(GetCommandTest, FilenameWithSpacesIsIgnored) {
-    // even if such a file exists, get MUST ignore
     std::ofstream out(invalidFilename);
     out << "SOMEDATA";
     out.close();
 
     testing::internal::CaptureStdout();
     GetCommand cmd;
-    cmd.get(validFilename);
+    cmd.get(invalidFilename); // ignored
     std::string output = testing::internal::GetCapturedStdout();
 
     EXPECT_TRUE(output.empty());
 }
 
-// TEST 4: When CLI_SAVE_PATH is missing so use "./"
+// TEST 4: environment variable missing → fallback to "./"
 TEST(GetCommandStandaloneTest, WorksWithoutEnvironmentVariable) {
-    // unset the var
-    _putenv("CLI_SAVE_PATH=");
+    setEnvVar("CLI_SAVE_PATH", nullptr); // unset
 
     const char* filename = "no_env_test.txt";
     std::remove(filename);
@@ -85,7 +94,7 @@ TEST(GetCommandStandaloneTest, WorksWithoutEnvironmentVariable) {
     std::string original = "HELLO";
     std::string compressed = RLE::compress(original);
 
-    //write compressed file into "./"
+    // write simple compressed file in current directory
     std::ofstream out(filename);
     out << compressed << std::endl;
     out.close();
@@ -100,9 +109,8 @@ TEST(GetCommandStandaloneTest, WorksWithoutEnvironmentVariable) {
     std::remove(filename);
 }
 
-// TEST 5: Ensure only ONE line is read
+// TEST 5: ensure only FIRST line is read
 TEST_F(GetCommandTest, ReadsOnlyFirstLine) {
-    // Create file with two lines — only the first should be read
     std::ofstream out(validFilename);
     out << RLE::compress("FIRST") << std::endl;
     out << RLE::compress("SECOND") << std::endl;
