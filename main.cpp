@@ -3,13 +3,14 @@
 #include <vector>
 #include "src/CommandParser.h"
 #include "src/AddCommand.h"
-
-// Note: We will include GetCommand.h and SearchCommand.h later when they are merged
-
+#include "src/GetCommand.h"    
+#include "src/SearchCommand.h" 
 int main() {
     // 1. Setup the helper objects
     CommandParser parser;
     AddCommand addCmd;
+    GetCommand getCmd;       
+    SearchCommand searchCmd; 
     
     // 2. Infinite Loop
     while (true) {
@@ -21,7 +22,7 @@ int main() {
             break;
         }
 
-        // 4. Parse the input using our new Parser
+        // 4. Parse the input using our Parser
         std::vector<std::string> args = parser.parse(line);
 
         // If line was empty or parse failed, ignore
@@ -33,21 +34,27 @@ int main() {
         std::string commandName = args[0];
 
         if (commandName == "add") {
-            // "add [file name] [text]"
-            // We need at least 3 arguments: command, filename, text
+            // usage: add [file name] [text]
             if (args.size() >= 3) {
                 addCmd.execute(args[1], args[2]);
             }
-            // If args are missing, we ignore (per instructions to ignore invalid commands) 
         }
         else if (commandName == "get") {
-            // TODO: Implement GetCommand integration here once merged
-            // if (args.size() >= 2) {
-            //     getCmd.get(args[1]);
-            // }
+            // usage: get [file name]
+            if (args.size() >= 2) {
+                getCmd.get(args[1]); 
+            }
         }
         else if (commandName == "search") {
-             // TODO: Implement SearchCommand integration later
+             // usage: search [text]
+             if (args.size() >= 2) {
+                 // SearchCommand returns a vector, main is responsible for printing
+                 std::vector<std::string> results = searchCmd.execute(args[1]);
+                 
+                 for (const auto& filename : results) {
+                     std::cout << filename << std::endl;
+                 }
+             }
         }
         
         // Any other command is ignored silently

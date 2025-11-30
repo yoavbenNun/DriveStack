@@ -2,7 +2,7 @@
 #include "../src/SearchCommand.h"
 #include "../src/AddCommand.h"
 #include "../src/RLE.h"
-
+#include <algorithm> 
 #include <filesystem>
 #include <fstream>
 
