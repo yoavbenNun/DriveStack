@@ -28,9 +28,9 @@ docker run -it my_cli_app
 
 Usage Example:
 Here is an example of a session running the app:
-1. Add a file: add hello.txt "AAABBBCCC"
-2. Get the content: get hello.txt (Output: 3A3B3C)
-3. Search for text: search "B" (Output: hello.txt)
+1. Add a file: add my "AABB"
+2. Get the content: get my (Output: AABB)
+3. Search for text: search "A" (Output: my)
 <img width="1905" height="1005" alt="image" src="https://github.com/user-attachments/assets/6b12f314-9a03-4235-9382-cdad3f6d2d40" />
 
 
