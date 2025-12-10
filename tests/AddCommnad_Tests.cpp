@@ -46,7 +46,7 @@ TEST_F(AddCommandTest, CreatesFileWithCompressedContent) {
     std::string content = "AAABBC";
     std::string expected = "3A2B1C";
 
-    cmd.execute(validFilename, content);
+    cmd.execute({validFilename, content});
 
     std::ifstream file(validFilename);
     ASSERT_TRUE(file.good());
@@ -60,7 +60,7 @@ TEST_F(AddCommandTest, CreatesFileWithCompressedContent) {
 // ---------------------- TEST 2 ----------------------
 TEST_F(AddCommandTest, IgnoresCommandWithSpacesInFilename) {
     AddCommand cmd;
-    cmd.execute(invalidFilename, "AAA");
+    cmd.execute({invalidFilename, "AAA"});
 
     std::ifstream file(invalidFilename);
     ASSERT_FALSE(file.good());
@@ -74,7 +74,7 @@ TEST(AddCommandStandaloneTest, SavesToCurrentDirIfEnvVarIsMissing) {
     std::remove(filename);
 
     AddCommand cmd;
-    cmd.execute(filename, "CCC");
+    cmd.execute({filename, "CCC"});
 
     std::ifstream file(filename);
     ASSERT_TRUE(file.good());
@@ -97,7 +97,7 @@ TEST_F(AddCommandTest, OverwritesExistingFile) {
         f << RLE::compress("AAA"); // 3A
     }
 
-    cmd.execute(validFilename, "BBB"); // should overwrite
+    cmd.execute({validFilename, "BBB"}); // should overwrite
 
     std::ifstream file(validFilename);
     ASSERT_TRUE(file.good());

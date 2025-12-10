@@ -1,51 +1,47 @@
-#include "GetCommand.h" // Include the contract
-#include "RLE.h"        // We need the RLE module to compress
-#include <fstream>      // For writing to files (std::ofstream)
-#include <cstdlib>      // For getting environment variables (getenv)
-#include <string>       // For std::string manipulation
+#include "GetCommand.h"
+#include "RLE.h"
+#include <fstream>
+#include <cstdlib>
 #include <iostream>
 
-/**
- * @brief Executes the get command logic.
- * @param filename The name of the file to read and decompress.
- * @return The decompressed content of the file.
- */
+std::string GetCommand::execute(const std::vector<std::string>& args) {
+    // 1. Validation
+    if (args.empty()) {
+        return "400 Bad Request\n";
+    }
+    std::string filename = args[0]; // Assuming args[0] is filename based on standard execute call
+    // If called from main with {filename}, args[0] is filename.
 
- void GetCommand::get(const std::string& filename ){
-    if(filename.find(' ') != std::string::npos){
-        return;
-    } // Ignore the command by doing nothing
-
-
-    // 1. Get save path from environment variable
-    const char* savePathEnv = std::getenv("CLI_SAVE_PATH");
-
-    std::string savePath = "./"; // Default path is current directory
-    if (savePathEnv != nullptr) {
-        savePath = savePathEnv;
-        // Ensure the path ends with a slash (or backslash on Windows)
-        if (savePath.back() != '/' && savePath.back() != '\\') {
-            savePath += "/"; // Or use platform-specific separator
-        }
+    if (filename.find(' ') != std::string::npos) {
+        return "400 Bad Request\n";
     }
 
-    // 2. Create the full path
+    // 2. Path Logic
+    const char* savePathEnv = std::getenv("CLI_SAVE_PATH");
+    std::string savePath = "./";
+    if (savePathEnv != nullptr) {
+        savePath = savePathEnv;
+        if (!savePath.empty() && savePath.back() != '/' && savePath.back() != '\\') {
+            savePath += "/";
+        }
+    }
     std::string fullPath = savePath + filename;
 
-    //3. open the file 
+    // 3. Open File
     std::ifstream file(fullPath);
-        if (!file.is_open())
-        {
-            return; //file doesnt exist so ignore it qeutly
-        }
-        
-    std::string compressedText;
-    std::getline(file, compressedText);  // read only one line from the file
-    file.close();                        
+    if (!file.is_open()) {
+        return "404 Not Found\n";
+    }
 
-    //4. decompress the RLE compress from ADD.
+    std::string compressedText;
+    if (!std::getline(file, compressedText)) {
+        compressedText = "";
+    }
+    file.close();
+
+    // 4. Decompress
     std::string decompressed = RLE::decompress(compressedText);
 
-    //5. print the decompressed string to the user.
-    std::cout << decompressed << std::endl;
- }
+    // 5. Return formatted string
+    return "200 Ok\n\n" + decompressed; 
+}
