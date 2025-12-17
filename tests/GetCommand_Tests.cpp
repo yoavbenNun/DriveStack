@@ -40,86 +40,82 @@ protected:
         std::remove(invalidFilename);
     }
 
-    // helper to write compressed content
+    // Helper to write compressed content using the RLE logic
     void writeCompressedFile(const char* filename, const std::string& content) {
         std::ofstream out(filename);
-        out << RLE::compress(content) << std::endl;
+        out << RLE::compress(content);
+        out.close();
     }
 };
 
 // TEST 1: Reading an existing file works
-TEST_F(GetCommandTest, PrintsDecompressedContent) {
+// Expects the "200 Ok" header followed by two newlines and the content
+TEST_F(GetCommandTest, PrintsDecompressedContentWithHeader) {
     std::string original = "AAABBC";
     writeCompressedFile(validFilename, original);
 
-    testing::internal::CaptureStdout();
     GetCommand cmd;
-    cmd.get(validFilename);
-    std::string output = testing::internal::GetCapturedStdout();
+    // REFACTOR UPDATE: calling execute with a vector
+    std::string output = cmd.execute({validFilename});
 
-    EXPECT_EQ(output, original + "\n");
+    // The logic in GetCommand.cpp returns: "200 Ok\n\n" + decompressed
+    std::string expected = "200 Ok\n\n" + original; 
+    EXPECT_EQ(output, expected);
 }
 
-// TEST 2: non-existing file → no output
-TEST_F(GetCommandTest, NonExistingFileProducesNoOutput) {
-    testing::internal::CaptureStdout();
+// TEST 2: Non-existing file -> Expects 404
+TEST_F(GetCommandTest, NonExistingFileProduces404) {
     GetCommand cmd;
-    cmd.get(validFilename); // file doesn't exist
-    std::string output = testing::internal::GetCapturedStdout();
+    // File does not exist
+    std::string output = cmd.execute({validFilename});
 
-    EXPECT_TRUE(output.empty());
+    // Requirement: Should return "404 Not Found"
+    EXPECT_EQ(output, "404 Not Found\n");
 }
 
-// TEST 3: filename with spaces → ignored
-TEST_F(GetCommandTest, FilenameWithSpacesIsIgnored) {
-    std::ofstream out(invalidFilename);
-    out << "SOMEDATA";
-    out.close();
-
-    testing::internal::CaptureStdout();
+// TEST 3: Filename with spaces -> Expects 400
+TEST_F(GetCommandTest, FilenameWithSpacesProduces400) {
     GetCommand cmd;
-    cmd.get(invalidFilename); // ignored
-    std::string output = testing::internal::GetCapturedStdout();
+    // Even if file existed, spaces are invalid in this protocol
+    std::string output = cmd.execute({invalidFilename}); 
 
-    EXPECT_TRUE(output.empty());
+    // Requirement: Should return "400 Bad Request"
+    EXPECT_EQ(output, "400 Bad Request\n");
 }
 
-// TEST 4: environment variable missing → fallback to "./"
+// TEST 4: Environment variable missing -> fallback to "./"
 TEST(GetCommandStandaloneTest, WorksWithoutEnvironmentVariable) {
-    setEnvVar("CLI_SAVE_PATH", nullptr); // unset
+    setEnvVar("CLI_SAVE_PATH", nullptr); // Unset the environment variable
 
     const char* filename = "no_env_test.txt";
-    std::remove(filename);
+    std::remove(filename); // Ensure clean state
 
     std::string original = "HELLO";
-    std::string compressed = RLE::compress(original);
-
-    // write simple compressed file in current directory
     std::ofstream out(filename);
-    out << compressed << std::endl;
+    out << RLE::compress(original);
     out.close();
 
-    testing::internal::CaptureStdout();
     GetCommand cmd;
-    cmd.get(filename);
-    std::string output = testing::internal::GetCapturedStdout();
+    std::string output = cmd.execute({filename});
 
-    EXPECT_EQ(output, original + "\n");
+    std::string expected = "200 Ok\n\n" + original;
+    EXPECT_EQ(output, expected);
 
     std::remove(filename);
 }
 
-// TEST 5: ensure only FIRST line is read
+// TEST 5: Ensure only FIRST line is read (if logic dictates line-by-line reading)
 TEST_F(GetCommandTest, ReadsOnlyFirstLine) {
     std::ofstream out(validFilename);
+    // Write two lines of compressed data
     out << RLE::compress("FIRST") << std::endl;
     out << RLE::compress("SECOND") << std::endl;
     out.close();
 
-    testing::internal::CaptureStdout();
     GetCommand cmd;
-    cmd.get(validFilename);
-    std::string output = testing::internal::GetCapturedStdout();
+    std::string output = cmd.execute({validFilename});
 
-    EXPECT_EQ(output, "FIRST\n");
+    // Expect header + first line only
+    std::string expected = "200 Ok\n\nFIRST";
+    EXPECT_EQ(output, expected);
 }

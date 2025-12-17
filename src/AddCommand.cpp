@@ -1,43 +1,44 @@
-#include "AddCommand.h" // Include the contract
-#include "RLE.h"        // We need the RLE module to compress
-#include <fstream>      // For writing to files (std::ofstream)
-#include <cstdlib>      // For getting environment variables (getenv)
-#include <string>       // For std::string manipulation
+#include "AddCommand.h"
+#include <fstream>
+#include <iostream>
+#include "RLE.h" 
 
-/**
- * @brief Executes the add command logic.
- * @param filename The name of the file to create.
- * @param content The text content to compress and save.
- */
-void AddCommand::execute(const std::string& filename, const std::string& content) {
+std::string AddCommand::execute(const std::vector<std::string>& args) {
+    // 1. Basic validation: ensure we have at least filename and content
+    if (args.size() < 2) {
+        return "400 Bad Request\n";
+    }
 
+    std::string filename;
+    std::string content;
+
+    if (args.size() == 3) {
+        filename = args[1];
+        content = args[2];
+    } else {
+        filename = args[0];
+        content = args[1];
+    }
+
+    // search for space in file name
     if (filename.find(' ') != std::string::npos) {
-        return; // Ignore the command by doing nothing
+        return "400 Bad Request\n";
     }
 
+    // 2. Perform compression
+    std::string compressedData = RLE::compress(content);
 
-    // 1. Get save path from environment variable
-    const char* savePathEnv = std::getenv("CLI_SAVE_PATH");
-
-    std::string savePath = "./"; // Default path is current directory
-    if (savePathEnv != nullptr) {
-        savePath = savePathEnv;
-        // Ensure the path ends with a slash (or backslash on Windows)
-        if (savePath.back() != '/' && savePath.back() != '\\') {
-            savePath += "/"; // Or use platform-specific separator
-        }
+    // 3. Write to file
+    // Note: In a real scenario, handle full paths or directory logic here
+    std::ofstream outFile(filename);
+    if (!outFile.is_open()) {
+        // Return 400 or 404 depending on why it failed
+        return "400 Bad Request\n";
     }
 
-    // 2. Create the full path
-    std::string fullPath = savePath + filename;
+    outFile << compressedData;
+    outFile.close();
 
-    // 3. Compress the content (using RLE::compress)
-    std::string compressedContent = RLE::compress(content);
-
-    // 4. Create and write the compressed content to the file
-    std::ofstream outFile(fullPath);
-    if (outFile.is_open()) {
-        outFile << compressedContent;
-        outFile.close();
-    }
+    // 4. Return success response according to Ex2 protocol [cite: 50-52] 
+    return "201 Created\n";
 }

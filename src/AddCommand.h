@@ -1,21 +1,17 @@
 #ifndef ADD_COMMAND_H
 #define ADD_COMMAND_H
 
+#include "Command.h"
 #include <string>
+#include <vector>
 
 /**
- * @class AddCommand
- * @brief Handles the logic for the "add" command.
- * It compresses content and saves it to a new file.
+ * Implements the POST logic (formerly 'add').
+ * Compresses data using RLE and saves it to a file.
  */
-class AddCommand {
+class AddCommand : public Command {
 public:
-    /**
-     * @brief Executes the add command logic.
-     * @param filename The name of the file to create.
-     * @param content The text content to compress and save.
-     */
-    void execute(const std::string& filename, const std::string& content);
+    std::string execute(const std::vector<std::string>& args) override;
 };
 
 #endif // ADD_COMMAND_H

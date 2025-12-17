@@ -1,59 +1,89 @@
 #include "SearchCommand.h"
 #include "RLE.h"
-
-#include <filesystem>
-#include <fstream>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 #include <cstdlib>
+#include <algorithm>
+#include <stdexcept>
 
-std::vector<std::string> SearchCommand::execute(const std::string& content) {
-    std::vector<std::string> results;
+namespace fs = std::filesystem;
 
-    // Invalid input → return empty
-    if (content.empty())
-        return results;
-
-    // Directory of stored files (set by the environment variable)
-    const char* env = std::getenv("CLI_SAVE_PATH");
-    if (!env) {
-        std::cerr << "CLI_SAVE_PATH not set.\n";
-        return results;
+std::string SearchCommand::execute(const std::vector<std::string>& args) {
+    // 1. Validation: Ensure a search query is provided AND is not empty strings
+    // FIX: Added check for args[0].empty() to prevent matching everything
+    if (args.empty() || args[0].empty()) {
+        return "400 Bad Request\n";
     }
+    std::string query = args[0];
 
-    std::string dirPath = env;
-
-    // Iterate through all files in CLI_SAVE_PATH
-    for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
-        if (!entry.is_regular_file())
-            continue;
-
-        std::string filename = entry.path().filename().string();
-
-        // Read and decompress file content
-        std::string decompressed = readDecompressed(filename);
-
-        // If the file contains the substring → add to results
-        if (decompressed.find(content) != std::string::npos) {
-            results.push_back(filename);
+    // 2. Path Setup
+    const char* savePathEnv = std::getenv("CLI_SAVE_PATH");
+    std::string savePath = "./";
+    if (savePathEnv != nullptr) {
+        savePath = savePathEnv;
+        if (!savePath.empty() && savePath.back() != '/' && savePath.back() != '\\') {
+            savePath += "/";
         }
     }
 
-    return results;
-}
-
-std::string SearchCommand::readDecompressed(const std::string& filename) {
-    const char* env = std::getenv("CLI_SAVE_PATH");
-    std::string fullPath = std::string(env) + "/" + filename;
-
-    std::ifstream file(fullPath);
-    if (!file.is_open()) {
-        return "";
+    // 3. Directory Check
+    if (!fs::exists(savePath)) {
+        return "404 Not Found\n";
     }
 
-    std::string compressedContent;
-    std::getline(file, compressedContent);
-    file.close();
+    std::string results = "";
+    bool firstMatch = true;
+    bool foundAny = false;
 
-    // Use RLE namespace — correct!
-    return RLE::decompress(compressedContent);
+    // 4. Iterate Files
+    for (const auto& entry : fs::directory_iterator(savePath)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+
+        std::string filename = entry.path().filename().string();
+        bool isMatch = false;
+
+        // A. Search in Filename
+        if (filename.find(query) != std::string::npos) {
+            isMatch = true;
+        }
+        
+        // B. Search in Content
+        if (!isMatch) {
+            std::ifstream file(entry.path());
+            if (file.is_open()) {
+                std::string encodedLine;
+                if (std::getline(file, encodedLine)) {
+                    try {
+                        std::string decodedContent = RLE::decompress(encodedLine);
+                        if (decodedContent.find(query) != std::string::npos) {
+                            isMatch = true;
+                        }
+                    } catch (const std::exception&) {
+                        // Ignore binary/corrupt files
+                        isMatch = false;
+                    }
+                }
+                file.close();
+            }
+        }
+
+        if (isMatch) {
+            if (!firstMatch) {
+                results += "\n";
+            }
+            results += filename;
+            firstMatch = false;
+            foundAny = true;
+        }
+    }
+
+    // 5. Final Result
+    if (!foundAny) {
+        return "404 Not Found\n";
+    }
+
+    return "200 Ok\n\n" + results;
 }
