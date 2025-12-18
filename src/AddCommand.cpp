@@ -2,9 +2,15 @@
 #include <fstream>
 #include <iostream>
 #include "RLE.h" 
+#include "storage/FileStorage.h"
+#include <shared_mutex>
+#include <mutex>
 
 std::string AddCommand::execute(const std::vector<std::string>& args) {
     // 1. Basic validation: ensure we have at least filename and content
+    auto& storage = FileStorage::instance();
+    std::unique_lock lock(storage.mutex());
+    
     if (args.size() < 2) {
         return "400 Bad Request\n";
     }

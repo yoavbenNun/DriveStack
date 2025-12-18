@@ -1,8 +1,14 @@
 #include "DeleteCommand.h"
 #include <cstdio>  // For std::remove
 #include <fstream> // For std::ifstream (to check existence)
+#include "storage/FileStorage.h"
+#include <shared_mutex>
+#include <mutex>
+
 
 std::string DeleteCommand::execute(const std::vector<std::string>& args) {
+    auto& storage = FileStorage::instance();
+    std::unique_lock lock(storage.mutex()); 
     // 1. Validate arguments
     if (args.empty()) {
         return "400 Bad Request\n";
