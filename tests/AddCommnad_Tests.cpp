@@ -88,22 +88,23 @@ TEST(AddCommandStandaloneTest, SavesToCurrentDirIfEnvVarIsMissing) {
 }
 
 // ---------------------- TEST 4 ----------------------
-TEST_F(AddCommandTest, OverwritesExistingFile) {
+TEST_F(AddCommandTest, ReturnsErrorIfFileExists) {
+    // 1. Create a file first
+    std::ofstream outFile(validFilename);
+    outFile << "Original Content";
+    outFile.close();
+
+    // 2. Try to POST (create) the same file again
     AddCommand cmd;
+    std::vector<std::string> args = {validFilename, "NewData"};
+    std::string result = cmd.execute(args);
 
-    // Old file content
-    {
-        std::ofstream f(validFilename);
-        f << RLE::compress("AAA"); // 3A
-    }
+    // 3. Expect Failure (400) instead of overwrite
+    EXPECT_EQ(result, "400 Bad Request\n");
 
-    cmd.execute({validFilename, "BBB"}); // should overwrite
-
-    std::ifstream file(validFilename);
-    ASSERT_TRUE(file.good());
-
-    std::string fileContent;
-    file >> fileContent;
-
-    ASSERT_EQ(fileContent, "3B");
+    // 4. Verify content was NOT changed
+    std::ifstream inFile(validFilename);
+    std::string content;
+    std::getline(inFile, content);
+    EXPECT_EQ(content, "Original Content");
 }
