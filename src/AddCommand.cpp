@@ -29,10 +29,14 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
     std::string compressedData = RLE::compress(content);
 
     // 3. Write to file
-    // Note: In a real scenario, handle full paths or directory logic here
-    std::ofstream outFile(filename);
+    // Check environment variable defined in Dockerfile
+    const char* envPath = std::getenv("CLI_SAVE_PATH");
+    std::string storageDir = (envPath != nullptr) ? envPath : ".";
+    
+    // Create full path: /app/data/filename
+    std::string fullPath = storageDir + "/" + filename; 
+    std::ofstream outFile(fullPath); 
     if (!outFile.is_open()) {
-        // Return 400 or 404 depending on why it failed
         return "400 Bad Request\n";
     }
 

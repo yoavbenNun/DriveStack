@@ -1,26 +1,38 @@
-# 1. Base Image: Start with a Linux system that has GCC installed
-FROM gcc:latest
+# ================================
+# Stage 1: Build Stage (The Builder)
+# ================================
+FROM gcc:latest AS builder
 
-# 2. Install CMake (required to build the project)
+# Install CMake
 RUN apt-get update && apt-get install -y cmake
 
-# 3. Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# 4. Copy all project files into the container
+# Copy source code
 COPY . .
 
-# 5. Create a build directory and enter it
+# Build the project
 WORKDIR /usr/src/app/build
-
-# 6. Configure and Build the project
-# We run cmake to generate makefiles, then make to compile
 RUN cmake .. && make
 
-# 7. Define the environment variable for file storage
-# We create a specific folder for data so it doesn't mix with code
-RUN mkdir -p /usr/src/app/data
-ENV CLI_SAVE_PATH="/usr/src/app/data"
+# ================================
+# Stage 2: Runtime Stage (The Final Product)
+# ================================
+# ubuntu:24.04 to support the latest GLIBC version
+FROM ubuntu:24.04
 
-# 8. Default command: Run the CLI app when the container starts
+# Install only the necessary runtime library for C++ (No compiler needed)
+RUN apt-get update && apt-get install -y libstdc++6 && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# COPY ONLY the executable FROM the builder stage
+# (Assuming your executable is named 'cli_app' in CMakeLists.txt)
+COPY --from=builder /usr/src/app/build/cli_app .
+
+# Create data directory and set permissions
+RUN mkdir -p /app/data
+ENV CLI_SAVE_PATH="/app/data"
+
+# Default command
 CMD ["./cli_app"]
