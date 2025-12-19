@@ -1,7 +1,7 @@
 #include "DeleteCommand.h"
 #include <cstdio>  // For std::remove
 #include <fstream> // For std::ifstream (to check existence)
-#include "storage/FileStorage.h"
+#include "Storage/FileStorage.h"
 #include <shared_mutex>
 #include <mutex>
 

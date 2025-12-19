@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include "RLE.h" 
-#include "storage/FileStorage.h"
+#include "Storage/FileStorage.h"
 #include <shared_mutex>
 #include <mutex>
 

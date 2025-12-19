@@ -3,7 +3,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <iostream>
-#include "storage/FileStorage.h"
+#include "Storage/FileStorage.h"
 #include <shared_mutex>
 
 std::string GetCommand::execute(const std::vector<std::string>& args) {
