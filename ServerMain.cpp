@@ -7,7 +7,10 @@
 #include "server/TcpIO.h"
 
 #ifdef _WIN32
-#include <winsock2.h> // shutdown + SD_BOTH
+  #include <winsock2.h>   // recv, shutdown, SD_BOTH
+#else
+  #include <sys/socket.h> // recv, shutdown
+  #include <unistd.h>     // close
 #endif
 
 static bool readLine(SocketT s, std::string& outLine) {
@@ -35,9 +38,11 @@ static void closeClient(SocketT client) {
     shutdown(client, SD_BOTH);
     closesocket(client);
 #else
+    shutdown(client, SHUT_RDWR);
     close(client);
 #endif
 }
+
 
 static void handleClient(SocketT client) {
     //Parser for each thread (no shared state)
@@ -73,8 +78,7 @@ int main(int argc, char** argv) {
     server.start();
 
     while (true) {
-        SocketT client = (SocketT)server.acceptClient();
-
+        SocketT client = server.acceptClient();
         // thread-per-client
         std::thread t([client]() mutable {
             handleClient(client);
