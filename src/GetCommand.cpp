@@ -3,9 +3,13 @@
 #include <fstream>
 #include <cstdlib>
 #include <iostream>
+#include "Storage/FileStorage.h"
+#include <shared_mutex>
 
 std::string GetCommand::execute(const std::vector<std::string>& args) {
     // 1. Validation
+    auto& storage = FileStorage::instance();
+    std::shared_lock lock(storage.mutex());  
     if (args.empty()) {
         return "400 Bad Request\n";
     }

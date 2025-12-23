@@ -33,8 +33,29 @@ Here is an example of a session running the app:
 3. Search for text: search "A" (Output: my)
 <img width="1905" height="1005" alt="image" src="https://github.com/user-attachments/assets/6b12f314-9a03-4235-9382-cdad3f6d2d40" />
 
+# *** Multi-Threading Design (Ex2)
+## * Architecture
+* The project contains two executables:
+1. cli_app: local REPL CLI that parses and executes commands.
+2. server_app: TCP server that accepts clients and executes the same commands remotely.
 
-י
+## * Server Concurrency Model
+* The server uses a thread-per-client approach: 
+acceptClient() returns a connected client socket.
+For each client, the server spawns a std::thread that handles the client session.
+The main thread continues accepting new clients.
+* Each client thread reads requests in a line-based protocol (\n terminated):
+The server reads bytes until \n, trims optional \r (CRLF).
+The line is parsed using CommandParser.
+The produced command is executed and a response is sent back (also line-based).
 
+## * Synchronization / Thread Safety
+1. Multiple client threads may access the same storage concurrently.
+2. To prevent race conditions (e.g., ADD vs GET / DELETE on the same file), storage access is protected with a single global lock:
+Read operations (GET, SEARCH) use std::shared_lock<std::shared_mutex> (multiple readers allowed).
+Write operations (ADD, DELETE) use std::unique_lock<std::shared_mutex> (exclusive access).
+3. This guarantees consistency of file I/O and avoids partial reads/writes.
 
-
+## * Platform Notes (Windows)
+On Windows, the TCP layer uses Winsock2 and links against Ws2_32.
+Client sockets are closed using shutdown(..., SD_BOTH) and closesocket(...).

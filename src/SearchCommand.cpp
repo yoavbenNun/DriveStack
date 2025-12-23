@@ -6,10 +6,14 @@
 #include <cstdlib>
 #include <algorithm>
 #include <stdexcept>
+#include "Storage/FileStorage.h"
+#include <shared_mutex>
 
 namespace fs = std::filesystem;
 
 std::string SearchCommand::execute(const std::vector<std::string>& args) {
+    auto& storage = FileStorage::instance();
+    std::shared_lock lock(storage.mutex());
     // 1. Validation: Ensure a search query is provided AND is not empty strings
     // FIX: Added check for args[0].empty() to prevent matching everything
     if (args.empty() || args[0].empty()) {
