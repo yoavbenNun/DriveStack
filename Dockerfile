@@ -29,6 +29,7 @@ WORKDIR /app
 # COPY ONLY the executable FROM the builder stage
 # (Assuming your executable is named 'cli_app' in CMakeLists.txt)
 COPY --from=builder /usr/src/app/build/cli_app .
+COPY --from=builder /usr/src/app/build/server_app .
 
 # Create data directory and set permissions
 RUN mkdir -p /app/data

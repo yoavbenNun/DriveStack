@@ -32,10 +32,15 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
         content = args[1];
     }
 
-    // 3. Validation: Search for space in file name
-    if (filename.find(' ') != std::string::npos) {
+    // 3. Validation: Search for space in file name + Directory Traversal
+    const std::string invalidChars = " <>:\"/\\|?*";
+    if (filename.find_first_of(invalidChars) != std::string::npos) {
         return "400 Bad Request\n";
     }
+    if (filename.find("..") != std::string::npos) {
+    return "400 Bad Request\n";
+    }
+
 
     // 4. Perform compression
     std::string compressedData = RLE::compress(content);
