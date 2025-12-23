@@ -1,16 +1,21 @@
 #include "AddCommand.h"
 #include <fstream>
 #include <iostream>
-#include "RLE.h" 
+#include <filesystem>
+#include <cstdlib> // For std::getenv
+#include "RLE.h"
 #include "Storage/FileStorage.h"
 #include <shared_mutex>
 #include <mutex>
 
+namespace fs = std::filesystem;
+
 std::string AddCommand::execute(const std::vector<std::string>& args) {
-    // 1. Basic validation: ensure we have at least filename and content
+    // 1. Thread Safety (from Server merge)
     auto& storage = FileStorage::instance();
     std::unique_lock lock(storage.mutex());
     
+    // 2. Basic validation
     if (args.size() < 2) {
         return "400 Bad Request\n";
     }
@@ -18,6 +23,7 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
     std::string filename;
     std::string content;
 
+    // Handle different argument structures (CLI vs Server)
     if (args.size() == 3) {
         filename = args[1];
         content = args[2];
@@ -26,22 +32,32 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
         content = args[1];
     }
 
-    // search for space in file name
+    // 3. Validation: Search for space in file name
     if (filename.find(' ') != std::string::npos) {
         return "400 Bad Request\n";
     }
 
-    // 2. Perform compression
+    // 4. Perform compression
     std::string compressedData = RLE::compress(content);
-
-    // 3. Write to file
-    // Check environment variable defined in Dockerfile
+  
+  
+    // 5. DOCKER FIX: Get the correct path (Hybrid Solution)
     const char* envPath = std::getenv("CLI_SAVE_PATH");
     std::string storageDir = (envPath != nullptr) ? envPath : ".";
-    
-    // Create full path: /app/data/filename
     std::string fullPath = storageDir + "/" + filename; 
-    std::ofstream outFile(fullPath); 
+
+    // 6. Prevent Overwrite (Check if file exists using FULL PATH)
+    std::ifstream checkFile(fullPath);
+    if (checkFile.good()) {
+        checkFile.close();
+        // Return error if file already exists
+        return "400 Bad Request\n"; 
+    }
+    checkFile.close();
+
+    // 7. Create the file (using fullPath)
+    std::ofstream outFile(fullPath);
+    
     if (!outFile.is_open()) {
         return "400 Bad Request\n";
     }
@@ -49,6 +65,6 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
     outFile << compressedData;
     outFile.close();
 
-    // 4. Return success response according to Ex2 protocol [cite: 50-52] 
+    // 8. Return success
     return "201 Created\n";
 }

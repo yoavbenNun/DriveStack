@@ -31,6 +31,8 @@ int main() {
             // According to requirements: "400 Bad Request" for unknown commands
             std::cout << "400 Bad Request\n";
         }
+        
+        std::cout.flush();
     }
 
     return 0;
