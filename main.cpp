@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "src/CommandParser.h"
+#include "CommandParser.h"
 
 int main() {
     CommandParser parser;

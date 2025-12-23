@@ -10,7 +10,7 @@ find_package(Threads REQUIRED)
 
 # Collect all source files from the src directory
 # Note: Since we use GLOB, adding new files usually requires reloading CMake
-file(GLOB SRC_FILES CONFIGURE_DEPENDS "src/*.cpp")
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "src/*.cpp")
 
 # --- The Main Application (Server) ---
 add_executable(cli_app
@@ -22,6 +22,21 @@ target_include_directories(cli_app PRIVATE src)
 
 # Link the threading library to the main application
 target_link_libraries(cli_app PRIVATE Threads::Threads)
+
+# --- Server executable ---
+add_executable(server_app
+    ServerMain.cpp
+    src/server/TcpServer.cpp
+    ${SRC_FILES}
+)
+
+target_include_directories(server_app PRIVATE src)
+target_link_libraries(server_app PRIVATE Threads::Threads)
+
+if (WIN32)
+    target_link_libraries(cli_app PRIVATE Ws2_32)
+    target_link_libraries(server_app PRIVATE Ws2_32)
+endif()
 
 # --- Testing with GoogleTest ---
 option(BUILD_TESTING "Build tests" ON)
@@ -57,6 +72,10 @@ if(BUILD_TESTING)
         GTest::gtest_main
         Threads::Threads
     )
+    if (WIN32)
+        target_link_libraries(runTests PRIVATE Ws2_32)
+    endif()
+
 
     include(GoogleTest)
     gtest_discover_tests(runTests)
