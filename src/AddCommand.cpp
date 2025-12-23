@@ -32,8 +32,8 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
         content = args[1];
     }
 
-    // 3. Validation: Search for space in file name + Directory Traversal
-    const std::string invalidChars = " <>:\"/\\|?*";
+    // 3. Validation: Search for invalid chars in file name + Directory Traversal
+    const std::string invalidChars = " <>:\"/\\|?*,";
     if (filename.find_first_of(invalidChars) != std::string::npos) {
         return "400 Bad Request\n";
     }
