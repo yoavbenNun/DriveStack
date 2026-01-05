@@ -36,4 +36,4 @@ RUN mkdir -p /app/data
 ENV CLI_SAVE_PATH="/app/data"
 
 # Default command
-CMD ["./cli_app"]
+CMD ["./server_app", "3000"]
