@@ -1,61 +1,81 @@
-# Advanced System Programming
+# Advanced System Programming  - EX2
 
 Authors:
 Yoav Ben-Noon
 Lidor Ben David
 Omri Halfon
 
-A C++ Command Line Interface (CLI) application designed for file compression and management using the **Run-Length Encoding (RLE)** algorithm.
+## Project Description
+This project implements a multi-threaded TCP Server-Client architecture.
+* **Server:** Implemented in C++ (handling business logic, file management, and concurrency).
+* **Clients:** Two client implementations are provided:
+    1.  **C++ Client:** A console-based client running inside the Docker container.
+    2.  **Python Client:** A script-based client running on the host machine.
 
-This project was built using **TDD (Test-Driven Development)** methodology and strictly adheres to **SOLID** design principles to ensure loose coupling and scalability.
+The server supports the following commands over TCP:
+* `POST <filename> <content>`: Creates a file (returns `201 Created`).
+* `GET <filename>`: Retrieves file content (returns `200 Ok`).
+* `DELETE <filename>`: Deletes a file (returns `204 No Content`).
+* `SEARCH <string>`: Searches for files containing the string (returns `200 Ok`).
 
-## 🚀 Features
-
-The application runs in a continuous loop and supports the following commands:
-
-* **`add [file name] [text]`**: Compresses the input text using RLE and saves it to a new file.
-* **`get [file name]`**: Reads a compressed file from the storage, decompresses it, and displays the original content.
-* **`search [content]`**: Searches for a specific text pattern within all compressed files and lists the matching filenames.
 
 How to run (Using Docker):
-1. Build the Image
-Run the following command in the project root directory:
-docker build --no-cache -t my_cli_app .
+### 1. Build the Image
+Open a terminal in the project root directory and run:
+docker build -t final-app .
 
-2. Run the Application:
-docker run -it my_cli_app
-<img width="1003" height="610" alt="image" src="https://github.com/user-attachments/assets/605e7302-5972-4e8c-9f4e-95d5f34ebc98" />
+### 2. Run the Server
+Run the server container mapping port 3000:
+docker run -dp 3000:3000 final-app
 
-Usage Example:
-Here is an example of a session running the app:
-1. Add a file: add my "AABB"
-2. Get the content: get my (Output: AABB)
-3. Search for text: search "A" (Output: my)
-<img width="1905" height="1005" alt="image" src="https://github.com/user-attachments/assets/6b12f314-9a03-4235-9382-cdad3f6d2d40" />
+### 3. Run the Clients
+Option A: C++ Client (Inside Docker)
+    1. Get the container ID or name:
+        docker ps
+    2. Enter the container:
+        docker exec -it <CONTAINER ID> /bin/bash
+    3. Run the client:
+            ./cli_app 127.0.0.1 3000
+    ![alt text](image-1.png)
 
-# *** Multi-Threading Design (Ex2)
-## * Architecture
-* The project contains two executables:
-1. cli_app: local REPL CLI that parses and executes commands.
-2. server_app: TCP server that accepts clients and executes the same commands remotely.
+Option B: Python Client (Host Machine) Open a terminal on your computer (ensure python is installed) and run:
+    python clients/python/client.py 127.0.0.1 3000
 
-## * Server Concurrency Model
-* The server uses a thread-per-client approach: 
-acceptClient() returns a connected client socket.
-For each client, the server spawns a std::thread that handles the client session.
-The main thread continues accepting new clients.
-* Each client thread reads requests in a line-based protocol (\n terminated):
-The server reads bytes until \n, trims optional \r (CRLF).
-The line is parsed using CommandParser.
-The produced command is executed and a response is sent back (also line-based).
 
-## * Synchronization / Thread Safety
-1. Multiple client threads may access the same storage concurrently.
-2. To prevent race conditions (e.g., ADD vs GET / DELETE on the same file), storage access is protected with a single global lock:
-Read operations (GET, SEARCH) use std::shared_lock<std::shared_mutex> (multiple readers allowed).
-Write operations (ADD, DELETE) use std::unique_lock<std::shared_mutex> (exclusive access).
-3. This guarantees consistency of file I/O and avoids partial reads/writes.
+Design & Architecture (SOLID Principles)
+Handling Changes (Retrospective)
+As requested, here is how our design adheres to the Open/Closed Principle (OCP) regarding the changes from Exercise 1 to Exercise 2:
 
-## * Platform Notes (Windows)
-On Windows, the TCP layer uses Winsock2 and links against Ws2_32.
-Client sockets are closed using shutdown(..., SD_BOTH) and closesocket(...).
+1. Command Name Changes (e.g., add to POST)
+
+Did it require modifying closed code? No.
+
+Explanation: We utilized the Factory/Command Pattern. The mapping between command strings (e.g., "POST") and Command objects is decoupled from the logic itself. Changing the keyword only required updating the registration in the Factory, without altering the underlying logic of the AddCommand class.
+
+2. Adding New Commands (DELETE)
+
+Did it require modifying closed code? No.
+
+Explanation: Thanks to the Command interface, adding DELETE was done by creating a new class DeleteCommand that implements the common interface. The server's main loop and parser did not need significant changes to accommodate this new feature, demonstrating the Open/Closed principle.
+
+3. Output Format Changes (HTTP-like status codes)
+
+Did it require modifying closed code? No.
+
+Explanation: The command logic returns a response object/string. The formatting of the response was encapsulated. We updated the return values in the specific command classes or the response handler to match the required protocol (200 Ok, 204 No Content) without breaking the core execution flow.
+
+4. I/O Changes (Console to Socket)
+
+Did it require modifying closed code? No.
+
+Explanation: We separated the Business Logic from the Communication Layer. The core logic (creating/deleting files) does not care where the input comes from. In Ex1, the input came from std::cin, and in Ex2, it comes from a socket buffer. This allowed us to reuse the entire business logic engine by simply swapping the I/O interface.
+
+Multi-Threading Strategy
+Implementation: We implemented a Thread-per-Client model. For every new connection accepted by the server, a new std::thread is spawned to handle that specific client's session.
+
+Future Extensibility: While we currently spawn a new thread per client, the architecture is designed so that the "Worker" logic is encapsulated. If we need to switch to a Thread Pool in the future, we would only need to change the connection acceptance loop to submit tasks to a queue managed by a pool, rather than spawning raw threads directly. The client handling logic itself would remain unchanged.
+
+Proof of Multi-Threading & Python Support
+To demonstrate that the server can handle multiple clients simultaneously (including both C++ and Python clients), we ran a load test script (load_test.py).
+
+Screenshot of Load Test Results: (Note: As seen above, multiple clients send requests concurrently, and the server handles them with correct status codes 201 and 200 without blocking).

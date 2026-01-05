@@ -45,17 +45,9 @@ def main():
 
             # Only GET/SEARCH are expected to return payload
             if cmd in ("GET", "SEARCH") and status.startswith("200"):
-                # Some servers send a blank line before payload
-                sep = recv_line(s)
-                if sep != "":
-                    # if not blank, it might already be the payload
-                    if sep.strip() != "":
-                        print(sep)
-                        continue
-
-                payload = recv_line(s)
-                if payload != "":
-                    print(payload)
-
+                recv_line(s)      
+                print("")         
+                print(recv_line(s))
+                
 if __name__ == "__main__":
     main()

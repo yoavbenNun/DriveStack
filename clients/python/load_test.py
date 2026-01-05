@@ -2,7 +2,7 @@ import socket
 import threading
 
 HOST = "127.0.0.1"
-PORT = 5555
+PORT = 3000
 
 def recv_line(sock):
     data = b""
@@ -17,11 +17,18 @@ def worker(i):
     s = socket.socket()
     s.connect((HOST, PORT))
 
-    s.sendall(f"add f{i} AABB\n".encode())
-    print(f"[{i}] add ->", recv_line(s))
+    s.sendall(f"post f{i} AABB\n".encode())
+    print(f"[{i}] post ->", recv_line(s))
 
     s.sendall(f"get f{i}\n".encode())
-    print(f"[{i}] get ->", recv_line(s))
+
+    status = recv_line(s)
+    if status.startswith("200"):
+        recv_line(s)     
+        content = recv_line(s)
+        print(f"[{i}] GET -> {status} | Content: {content}")
+    else:
+        print(f"[{i}] GET -> {status}")
 
     s.close()
 
