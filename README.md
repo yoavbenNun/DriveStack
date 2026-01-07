@@ -58,8 +58,16 @@ docker run -dp 3000:3000 final-app
 
 
 
-#### Option B: Python Client (Host Machine) Open a terminal on your computer (ensure python is installed) and run:
-    python clients/python/client.py 127.0.0.1 3000
+#### Option B: Python Client (Inside docker)
+    1. Get the container ID or name: 
+   ```
+   docker ps
+   ```
+     
+2. Enter the container:
+   ```
+   docker exec -it 54251680dedd python3 clients/python/client.py 127.0.0.1 3000
+   ```
     
     
 <img width="1573" height="511" alt="Screenshot 2026-01-05 144056" src="https://github.com/user-attachments/assets/9c3f11e2-1438-4603-95da-abcce7ca8fce" />

@@ -21,15 +21,15 @@ RUN cmake .. && make
 # ubuntu:24.04 to support the latest GLIBC version
 FROM ubuntu:24.04
 
-# Install only the necessary runtime library for C++ (No compiler needed)
-RUN apt-get update && apt-get install -y libstdc++6 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libstdc++6 python3 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # COPY ONLY the executable FROM the builder stage
-# (Assuming your executable is named 'cli_app' in CMakeLists.txt)
 COPY --from=builder /usr/src/app/build/cli_app .
 COPY --from=builder /usr/src/app/build/server_app .
+
+COPY --from=builder /usr/src/app/clients /app/clients
 
 # Create data directory and set permissions
 RUN mkdir -p /app/data
