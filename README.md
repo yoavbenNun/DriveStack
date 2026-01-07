@@ -59,7 +59,7 @@ docker run -dp 3000:3000 final-app
 
 
 #### Option B: Python Client (Inside docker)
-    1. Get the container ID or name: 
+1. Get the container ID or name: 
    ```
    docker ps
    ```
