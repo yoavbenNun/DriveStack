@@ -70,7 +70,8 @@ docker run -dp 3000:3000 final-app
    ```
     
     
-<img width="1573" height="511" alt="Screenshot 2026-01-05 144056" src="https://github.com/user-attachments/assets/9c3f11e2-1438-4603-95da-abcce7ca8fce" />
+<img width="1060" height="251" alt="image" src="https://github.com/user-attachments/assets/a2c8c564-35f9-4bc5-9682-1a37b6e5bbd4" />
+
 
 
 
