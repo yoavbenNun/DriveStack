@@ -66,7 +66,7 @@ docker run -dp 3000:3000 final-app
      
 2. Enter the container:
    ```
-   docker exec -it 54251680dedd python3 clients/python/client.py 127.0.0.1 3000
+   docker exec -it <CONTAINER-ID> python3 clients/python/client.py 127.0.0.1 3000
    ```
     
     
