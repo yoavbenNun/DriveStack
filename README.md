@@ -66,11 +66,13 @@ docker run -dp 3000:3000 final-app
      
 2. Enter the container:
    ```
-   docker exec -it 54251680dedd python3 clients/python/client.py 127.0.0.1 3000
+   docker exec -it <CONTAINER-ID> python3 clients/python/client.py 127.0.0.1 3000
    ```
     
     
-<img width="1573" height="511" alt="Screenshot 2026-01-05 144056" src="https://github.com/user-attachments/assets/9c3f11e2-1438-4603-95da-abcce7ca8fce" />
+
+<img width="1060" height="251" alt="image" src="https://github.com/user-attachments/assets/bc6fcc32-383d-4f53-8bea-cfba3e187026" />
+
 
 
 
