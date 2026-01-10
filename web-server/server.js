@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const userRoutes = require('./src/routes/userRoutes');
+const fileRoutes = require('./src/routes/fileRoutes');
 
 const app = express();
 const PORT = 3000;
@@ -17,6 +18,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api', userRoutes);
+app.use('/api', fileRoutes);
 
 // Start Server
 app.listen(PORT, () => {
