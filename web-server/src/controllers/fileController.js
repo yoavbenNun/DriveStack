@@ -56,8 +56,10 @@ exports.createFileOrDir = async (req, res) => {
     try {
       // 🔁 adjust if your ADD syntax differs
       const encoded = Buffer.from(content ?? '', 'utf8').toString('base64');
-      const cmd = `ADD ${id} ${encoded}`;
+      const cmd = `POST ${id} ${encoded}`;
+      
       await client.send(cmd);
+
     } catch (e) {
       return res.status(500).json({ error: 'Internal server error' });
     }
