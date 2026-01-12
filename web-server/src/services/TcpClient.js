@@ -22,10 +22,16 @@ class TcpClient {
             });
 
             // getting information
+            let timer = null;
+
             client.on('data', (data) => {
-                const chunk = data.toString();
-                responseBuffer += chunk;
-                client.end(); 
+            responseBuffer += data.toString();
+
+            // wait briefly for more chunks
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                client.end();
+            }, 30);
             });
 
             // close connection
