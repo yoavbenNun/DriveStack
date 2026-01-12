@@ -5,6 +5,7 @@
 #include "CommandParser.h"
 #include "server/TcpServer.h"
 #include "server/TcpIO.h"
+#include "ThreadPool.h"
 
 #ifdef _WIN32
   #include <winsock2.h>   // recv, shutdown, SD_BOTH
@@ -77,12 +78,17 @@ int main(int argc, char** argv) {
     TcpServer server(static_cast<uint16_t>(port));
     server.start();
 
+    //create the thread pool
+    ThreadPool pool(5);
+
+    std::cout << "Server started with ThreadPool of 5 workers." << std::endl;
+
     while (true) {
         SocketT client = server.acceptClient();
-        // thread-per-client
-        std::thread t([client]() mutable {
+        // thread pool
+        pool.enqueue([client] {
             handleClient(client);
         });
-        t.detach();
     }
+    return 0;
 }

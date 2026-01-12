@@ -26,7 +26,6 @@ target_link_libraries(cli_app PRIVATE Threads::Threads)
 # --- Server executable ---
 add_executable(server_app
     ServerMain.cpp
-    src/server/TcpServer.cpp
     ${SRC_FILES}
 )
 
