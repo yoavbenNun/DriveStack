@@ -1,10 +1,12 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
 
 // define user's data path
 const DATA_DIR = path.join(__dirname, '../../data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const SECRET_KEY = 'my_secret_key_123'; 
 
 // check if folder exist. if not, create the folder.
 const ensureDataDir = async () => {
@@ -89,5 +91,38 @@ exports.getUser = async (req, res) => {
     } catch (error) {
         console.error('Get User Error:', error);
         res.status(500).json({ error: 'Failed to fetch user' });
+    }
+};
+
+exports.login = async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(404).json({ error: "Username and password are required" });
+    }
+
+    try {
+        const users = await readUsersFile();
+
+        // check if user exist and the paswwords match
+        const user = users.find(u => u.username === username && u.password === password);
+
+        if (!user) {
+            return res.status(404).json({ error: "Invalid username or password" });
+        }
+
+        // create one hour valid token
+        const token = jwt.sign(
+            { id: user.id, username: user.username }, 
+            SECRET_KEY, 
+            { expiresIn: '1h' }
+        );
+
+        // giving token to client
+        res.json({ token: token });
+
+    } catch (error) {
+        console.error('Login Error:', error);
+        res.status(404).json({ error: 'Login failed' });
     }
 };
