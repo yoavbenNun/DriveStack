@@ -1,44 +1,63 @@
 // web-server/src/controllers/fileController.js
 const TcpClient = require('../services/TcpClient');
+const FileModel = require('../models/file.model'); 
+const { v4: uuidv4 } = require('uuid');
 
-// must match C++ server
+// C++ server
 const CPP_PORT = 5555;
 const CPP_HOST = '127.0.0.1';
-
-// In-memory metadata store: id -> { id, name, type, parentId, createdAt, updatedAt }
-const files = new Map();
 
 function normalizeType(type) {
   return type === 'dir' ? 'dir' : 'file';
 }
 
-//already existing endpoint (search)
-exports.searchFiles = async (req, res) => {
-  const query = req.query.q;
-  if (!query) {
-    return res.status(400).json({ error: "Query parameter 'q' is required" });
-  }
-
-  const client = new TcpClient(CPP_PORT, CPP_HOST);
-
-  try {
-    const command = `SEARCH ${query}`;
-    const response = await client.send(command);
-
-    return res.status(200).json({
-      success: true,
-      query,
-      data: response,
-    });
-  } catch (error) {
-    return res.status(404).json({
-      error: 'Failed to communicate with C++ Server',
-      details: error.message,
-    });
-  }
+// GET /api/files
+exports.getAllFiles = (req, res) => {
+  const allFiles = FileModel.getAll(); 
+  return res.status(200).json(allFiles);
 };
 
-//POST /api/files (create file/dir)
+// GET /api/files/:id
+exports.getFileById = async (req, res) => {
+  const id = req.params.id;
+  const meta = FileModel.findById(id);
+  
+  if (!meta) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  if (meta.type === 'file') {
+    const client = new TcpClient(CPP_PORT, CPP_HOST);
+    try {
+      const response = await client.send(`GET ${id}`);
+
+      if (response.startsWith('404')) {
+        return res.status(404).json({ error: 'File content not found on storage' });
+      }
+      
+      const parts = response.split('\n\n');
+      const body = parts.length > 1 ? parts.slice(1).join('\n\n') : '';
+
+      let content = body;
+      try {
+        content = Buffer.from(body, 'base64').toString('utf8');
+      } catch (e) {}
+
+      // return all data
+      return res.status(200).json({
+        ...meta, 
+        content: content
+      });
+
+    } catch (e) {
+      return res.status(404).json({ error: 'Storage server error' });
+    }
+  }
+
+  return res.status(200).json(meta);
+};
+
+// POST /api/files
 exports.createFileOrDir = async (req, res) => {
   const { name, type, parentId, content } = req.body || {};
 
@@ -46,131 +65,91 @@ exports.createFileOrDir = async (req, res) => {
     return res.status(400).json({ error: 'Name is required' });
   }
 
-  const id = require('crypto').randomUUID();
+  const id = uuidv4();
   const t = normalizeType(type);
   const now = new Date().toISOString();
 
-  // create physical file in C++ only if it's a file
   if (t === 'file') {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
-      // 🔁 adjust if your ADD syntax differs
-      const encoded = Buffer.from(content ?? '', 'utf8').toString('base64');
-      const cmd = `POST ${id} ${encoded}`;
-      
-      await client.send(cmd);
-
+      const encodedContent = Buffer.from(content || '', 'utf8').toString('base64');
+      await client.send(`POST ${id} ${encodedContent}`);
     } catch (e) {
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(404).json({ error: 'Failed to create file on storage server' });
     }
   }
 
-  files.set(id, {
+  // using the model we wrote
+  FileModel.create({
     id,
     name: name.trim(),
     type: t,
-    parentId: parentId ?? null,
+    parentId: parentId || null,
     createdAt: now,
     updatedAt: now,
+    permissions: []
   });
 
   res.setHeader('Location', `/api/files/${id}`);
-  return res.status(201).end();
+  return res.status(201).end(); 
 };
 
-// GET/api/files/:id
-// GET /api/files/:id
-exports.getFileById = async (req, res) => {
-  const id = req.params.id;
-  const meta = files.get(id);
-  if (!meta) return res.status(404).json({ error: 'File not found' });
-
-  if (meta.type === 'file') {
-    const client = new TcpClient(CPP_PORT, CPP_HOST);
-
-    try {
-      const response = await client.send(`GET ${id}`);
-
-      // C++ returns: "404 Not Found\n" OR "200 Ok\n\n<decompressed>"
-      if (response.startsWith('404')) {
-        return res.status(404).json({ error: 'File not found' });
-      }
-      if (!response.startsWith('200')) {
-        return res.status(500).json({ error: 'Internal server error' });
-      }
-
-      // take body after the blank line
-      const parts = response.split('\n\n');
-      const body = parts.length > 1 ? parts.slice(1).join('\n\n') : '';
-
-      // body should be the Base64 string we stored via ADD
-      let decodedContent = body;
-      try {
-        decodedContent = Buffer.from(body, 'base64').toString('utf8');
-      } catch {}
-
-      return res.status(200).json({
-        id: meta.id,
-        name: meta.name,
-        type: meta.type,
-        parentId: meta.parentId,
-        content: decodedContent,
-      });
-    } catch (e) {
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  // dir
-  return res.status(200).json({
-    id: meta.id,
-    name: meta.name,
-    type: meta.type,
-    parentId: meta.parentId,
-  });
-};
-
-
-// PATCH/api/files/:id  (rename + optional content update)
+// PATCH /api/files/:id
 exports.updateFileById = async (req, res) => {
   const id = req.params.id;
-  const meta = files.get(id);
-  if (!meta) return res.status(404).json({ error: 'File not found' });
+  const meta = FileModel.findById(id);
 
-  const { name, content } = req.body || {};
-
-  // rename
-  if (name !== undefined) {
-    if (typeof name !== 'string' || name.trim() === '') {
-      return res.status(400).json({ error: 'Name is required' });
-    }
-    meta.name = name.trim();
+  if (!meta) {
+    return res.status(404).json({ error: 'File not found' });
   }
 
-  if (content !== undefined) {
-    return res.status(400).json({ error: 'Bad request' });
+  const { name } = req.body || {};
+  if (name) {
+    meta.name = name;
+    meta.updatedAt = new Date().toISOString();
   }
 
-  meta.updatedAt = new Date().toISOString();
-  files.set(id, meta);
   return res.status(204).end();
 };
 
-// DELETE/api/files/:id
+// DELETE /api/files/:id
 exports.deleteFileById = async (req, res) => {
   const id = req.params.id;
-  const meta = files.get(id);
-  if (!meta) return res.status(404).json({ error: 'File not found' });
+  const meta = FileModel.findById(id);
+
+  if (!meta) {
+    return res.status(404).json({ error: 'File not found' });
+  }
 
   if (meta.type === 'file') {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
       await client.send(`DELETE ${id}`);
     } catch (e) {
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(404).json({ error: 'Failed to delete from storage' });
     }
   }
 
-  files.delete(id);
+  FileModel.delete(id);
   return res.status(204).end();
+};
+
+// GET /api/search/:query
+exports.searchFiles = async (req, res) => {
+  const query = req.params.query;
+
+  if (!query) {
+    return res.status(400).json({ error: "Query is required" });
+  }
+
+  const client = new TcpClient(CPP_PORT, CPP_HOST);
+  try {
+    const response = await client.send(`SEARCH ${query}`);
+    return res.status(200).json({
+      query: query,
+      results: response 
+    });
+  } catch (error) {
+    return res.status(404).json({ error: 'Search failed' });
+  }
 };
