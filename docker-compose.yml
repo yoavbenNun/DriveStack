@@ -1,0 +1,15 @@
+services:
+  cpp-server:
+    build: .
+    ports:
+      - "8080:8080"
+
+  node-server:
+    build: ./node-server
+    ports:
+      - "3000:3000"
+    environment:
+      - CPP_HOST=cpp-server
+      - CPP_PORT=8080
+    depends_on:
+      - cpp-server
