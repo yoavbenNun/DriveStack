@@ -56,7 +56,7 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
     if (checkFile.good()) {
         checkFile.close();
         // Return error if file already exists
-        return "400 Bad Request\n"; 
+        return "404 Not Found\n"; 
     }
     checkFile.close();
 
