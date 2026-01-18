@@ -1,0 +1,28 @@
+services:
+  cpp-server:
+    build: .
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  node-server:
+    build: ./node-server
+    ports:
+      - "3000:3000"
+    environment:
+      - CPP_HOST=cpp-server
+      - CPP_PORT=8080
+    depends_on:
+      cpp-server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
