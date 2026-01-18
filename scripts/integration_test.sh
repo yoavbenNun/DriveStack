@@ -6,10 +6,18 @@ docker compose down --remove-orphans || true
 docker compose up --build -d
 
 echo "Waiting for node /health..."
-curl --retry 20 --retry-delay 1 --fail http://localhost:3000/health
+for i in {1..40}; do
+  if curl -s --fail http://localhost:3000/health >/dev/null; then
+    echo "Health OK ✅"
+    break
+  fi
+  echo "Not ready yet... ($i/40)"
+  sleep 1
+done
 
-echo ""
-echo "Health OK ✅"
+# final check (if still failing -> exit with error)
+curl -s --fail http://localhost:3000/health >/dev/null
+
 echo ""
 echo "Containers:"
 docker compose ps
