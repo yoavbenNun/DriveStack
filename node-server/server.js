@@ -1,14 +1,26 @@
-const express = require("express");
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+
+const userRoutes = require('./src/routes/userRoutes');
+const fileRoutes = require('./src/routes/fileRoutes');
+
 const app = express();
-app.use(express.json());
+const PORT = 3000;
 
-const CPP_HOST = process.env.CPP_HOST || "localhost";
-const CPP_PORT = process.env.CPP_PORT || "8080";
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "node-server", cpp: `${CPP_HOST}:${CPP_PORT}` });
+// Health Check Route
+app.get('/health', (req, res) => {
+    res.send('Web Server is up and running!');
 });
 
-app.listen(3000, "0.0.0.0", () => {
-  console.log("Node server listening on port 3000");
+app.use('/api', userRoutes);
+app.use('/api', fileRoutes);
+
+// Start Server
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
