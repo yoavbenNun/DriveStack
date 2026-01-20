@@ -4,8 +4,8 @@ const FileModel = require('../models/file.model');
 const { v4: uuidv4 } = require('uuid');
 
 // C++ server
-const CPP_PORT = 5555;
-const CPP_HOST = '127.0.0.1';
+const CPP_PORT = process.env.CPP_PORT || 8080; 
+const CPP_HOST = process.env.CPP_HOST || 'localhost';
 
 function normalizeType(type) {
   return type === 'dir' ? 'dir' : 'file';
@@ -40,7 +40,7 @@ exports.getFileById = async (req, res) => {
 
       let content = body;
       try {
-        content = Buffer.from(body, 'base64').toString('utf8');
+        content = body;
       } catch (e) {}
 
       // return all data
@@ -72,7 +72,7 @@ exports.createFileOrDir = async (req, res) => {
   if (t === 'file') {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
-      const encodedContent = Buffer.from(content || '', 'utf8').toString('base64');
+      const encodedContent = content || '';
       await client.send(`POST ${id} ${encodedContent}`);
     } catch (e) {
       return res.status(404).json({ error: 'Failed to create file on storage server' });

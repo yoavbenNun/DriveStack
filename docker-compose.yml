@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "8081:8080"
+    volumes:
+      - ./cpp_data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]

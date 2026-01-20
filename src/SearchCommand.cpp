@@ -23,7 +23,7 @@ std::string SearchCommand::execute(const std::vector<std::string>& args) {
 
     // 2. Path Setup
     const char* savePathEnv = std::getenv("CLI_SAVE_PATH");
-    std::string savePath = "./";
+    std::string savePath = "data/";
     if (savePathEnv != nullptr) {
         savePath = savePathEnv;
         if (!savePath.empty() && savePath.back() != '/' && savePath.back() != '\\') {
