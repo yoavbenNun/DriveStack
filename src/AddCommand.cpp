@@ -21,15 +21,24 @@ std::string AddCommand::execute(const std::vector<std::string>& args) {
     }
 
     std::string filename;
-    std::string content;
+    size_t contentStartIndex = 0;
 
-    // Handle different argument structures (CLI vs Server)
-    if (args.size() == 3) {
+    if (args[0] == "POST") {
+        if (args.size() < 2) return "400 Bad Request\n";
         filename = args[1];
-        content = args[2];
+        contentStartIndex = 2;
     } else {
+        if (args.size() < 2) return "400 Bad Request\n";
         filename = args[0];
-        content = args[1];
+        contentStartIndex = 1;
+    }
+
+    std::string content = "";
+    for (size_t i = contentStartIndex; i < args.size(); ++i) {
+        if (i > contentStartIndex) {
+            content += " "; 
+        }
+        content += args[i];
     }
 
     // 3. Validation: Search for invalid chars in file name + Directory Traversal
