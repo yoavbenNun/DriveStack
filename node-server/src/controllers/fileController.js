@@ -142,14 +142,36 @@ exports.searchFiles = async (req, res) => {
     return res.status(400).json({ error: "Query is required" });
   }
 
+  // (Metadata - Node.js Memory)
+  const allFiles = FileModel.getAll(); 
+  const nameMatches = allFiles.filter(file => file.name && file.name.includes(query));
+
+  // (Storage - C++ Server)
+  let contentMatches = [];
   const client = new TcpClient(CPP_PORT, CPP_HOST);
+
   try {
     const response = await client.send(`SEARCH ${query}`);
-    return res.status(200).json({
-      query: query,
-      results: response 
-    });
+    
+    // C++ returns: "200 Ok\n\n<ID1>\n<ID2>"
+    if (!response.startsWith('404') && response.includes('\n\n')) {
+        const parts = response.split('\n\n');
+        if (parts.length > 1) {
+            const ids = parts[1].split('\n').filter(line => line.trim() !== '');
+            contentMatches = ids.map(id => FileModel.findById(id)).filter(f => f);
+        }
+    }
   } catch (error) {
-    return res.status(404).json({ error: 'Search failed' });
+    console.log("Content search warning:", error.message);
   }
+
+  const combinedResults = [...nameMatches];
+  
+  contentMatches.forEach(file => {
+      if (!combinedResults.find(existing => existing.id === file.id)) {
+          combinedResults.push(file);
+      }
+  });
+
+  return res.status(200).json(combinedResults);
 };

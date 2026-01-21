@@ -45,31 +45,66 @@ docker-compose ps
 
 ## How to test (End-to-End)
 
-You can verify the entire system flow (Register -> Login -> Create -> Search) by copying and pasting the following scripts directly into your PS terminal.
+You can verify the entire system flow (Register -> Login -> Create Folder -> Create File -> Hybrid Search) by copying and pasting the following scripts directly into your **PowerShell** terminal.
 
 ### 1. register a new user
 ```
-$register = Invoke-RestMethod -Uri "http://localhost:3000/api/users" -Method Post -ContentType "application/json" -Body '{"username": "demo_user", "password": "123", "email": "demo@test.com"}'
-Write-Host "User Registered: $($register.username)"
+$register = Invoke-RestMethod -Uri "http://localhost:3000/api/users" -Method Post -ContentType "application/json" -Body '{"username": "full_test_user", "password": "123", "email": "test@demo.com"}'
+Write-Host "✅ User Registered: $($register.username)" -ForegroundColor Green
 ```
 ### 2. Login and capture the User ID automatically
 ```
-$token = Invoke-RestMethod -Uri "http://localhost:3000/api/tokens" -Method Post -ContentType "application/json" -Body '{"username": "demo_user", "password": "123"}'
+$token = Invoke-RestMethod -Uri "http://localhost:3000/api/tokens" -Method Post -ContentType "application/json" -Body '{"username": "full_test_user", "password": "123"}'
 $userId = $token.id
-Write-Host "Logged in! User ID: $userId"
+Write-Host "✅ Logged in! User ID: $userId" -ForegroundColor Green
 ```
-### 3. Create a file on the C++ Storage Server
+### 3. Create a Folder Structure
+Creates a directory named `Work_folder` (metadata only, stored in Node.js memory).
 ```
-Invoke-RestMethod -Uri "http://localhost:3000/api/files" -Method Post -ContentType "application/json" -Headers @{"x-user-id"=$userId} -Body '{"name": "demo_script.txt", "content": "This text was created via automated script"}'
-Write-Host "✅ File 'demo_script.txt' created successfully."
+Invoke-RestMethod -Uri "http://localhost:3000/api/files" -Method Post -ContentType "application/json" -Headers @{"x-user-id"=$userId} -Body '{"name": "Work_folder", "type": "dir"}'
+$folderId = (Invoke-RestMethod -Uri "http://localhost:3000/api/files" -Headers @{"x-user-id"=$userId} | Where-Object { $_.name -eq "Work_folder" }).id
+Write-Host "✅ Folder 'Work_folder' created with ID: $folderId" -ForegroundColor Green
 ```
-### 4. Search for content inside the file
+### 4. Create a File INSIDE the Folder
+Creates a file nested under the folder (using `parentId`). The content is sent to the C++ Storage Server.
 ```
-$searchResult = Invoke-RestMethod -Uri "http://localhost:3000/api/search/automated" -Headers @{"x-user-id"=$userId}
-Write-Host "✅ Search Result for 'automated': $($searchResult.results)"
+$fileBody = @{
+    name = "File_test"
+    type = "file"
+    parentId = $folderId
+    content = "This is the secret content stored in C++"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:3000/api/files" -Method Post -ContentType "application/json" -Headers @{"x-user-id"=$userId} -Body $fileBody
+Write-Host "✅ File 'File_test' created inside 'Work_folder'." -ForegroundColor Green
 ```
 
-<img width="1864" height="525" alt="image" src="https://github.com/user-attachments/assets/264c0f94-ad56-4dcb-afd2-1e0256cebde8" />
+### 5. Verify Content & Hybrid Search
+Tests the Hybrid Search capability:
+
+* Searches for "File" (Matches filename in Node.js metadata).
+
+* Searches for "Work" (Matches folder name in Node.js metadata).
+
+* Retrieves the physical content from C++.
+```
+# 1. Search by Name (Partial Match)
+$searchFile = Invoke-RestMethod -Uri "http://localhost:3000/api/search/File" -Headers @{"x-user-id"=$userId}
+Write-Host "🔎 Search 'File' found: $($searchFile.name)"
+
+# 2. Search by Folder Name
+$searchFolder = Invoke-RestMethod -Uri "http://localhost:3000/api/search/Work" -Headers @{"x-user-id"=$userId}
+Write-Host "🔎 Search 'Work' found: $($searchFolder.name) (Type: $($searchFolder.type))"
+
+# 3. Retrieve Full Content
+$fileId = $searchFile[0].id
+$fullData = Invoke-RestMethod -Uri "http://localhost:3000/api/files/$fileId" -Headers @{"x-user-id"=$userId}
+Write-Host "📄 Content from C++: $($fullData.content)" -ForegroundColor Yellow
+```
+  
+
+<img width="1639" height="845" alt="image" src="https://github.com/user-attachments/assets/4009037f-9766-4630-a098-138ba2ac87bb" />
+
 
 ---
 ## Design & Architecture (SOLID & Microservices)
