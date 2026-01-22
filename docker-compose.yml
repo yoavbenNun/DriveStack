@@ -28,3 +28,15 @@ services:
       interval: 2s
       timeout: 2s
       retries: 30
+
+  client:
+    build: ./client
+    ports:
+      - "80:5173"  
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - node-server
