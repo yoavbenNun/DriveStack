@@ -1,23 +1,20 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const LoginPage = () => {
-  // data managment
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // navigation
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
-    e.preventDefault(); // prevent refresh
+    e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // send Login request to server
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -25,14 +22,13 @@ const LoginPage = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Login failed. Please try again.');
+        throw new Error('Login failed. Please check your credentials.');
       }
 
-      // Successful login
       const data = await response.json();
       console.log('Login successful:', data);
       
-      // Redirect to dashboard
+      // מעבר לדאשבורד
       navigate('/dashboard');
 
     } catch (err) {
@@ -76,6 +72,10 @@ const LoginPage = () => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <p style={{ marginTop: '15px', fontSize: '0.9rem' }}>
+          Don't have an account? <Link to="/register">Register here</Link>
+        </p>
       </div>
     </div>
   );
