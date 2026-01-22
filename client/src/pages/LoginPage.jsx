@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
@@ -8,6 +9,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -28,7 +30,9 @@ const LoginPage = () => {
       const data = await response.json();
       console.log('Login successful:', data);
       
-      // מעבר לדאשבורד
+      const token = data.token || 'temp-token-12345'; 
+      login(data, token);
+
       navigate('/dashboard');
 
     } catch (err) {
