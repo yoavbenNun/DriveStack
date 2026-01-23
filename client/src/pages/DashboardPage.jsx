@@ -1,50 +1,67 @@
 import React from 'react';
-import { useAuth } from '../context/AuthContext'; 
+import Sidebar from '../components/SideBar';
+import TopBar from '../components/TopBar';
 
 const DashboardPage = () => {
-  const { user, logout } = useAuth();
-
   return (
     <div style={{ 
-      padding: '40px', 
-      textAlign: 'center', 
-      color: 'white',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: '20px'
+      display: 'flex', 
+      height: '100vh', 
+      width: '100vw',
+      overflow: 'hidden', // Essential to keep Sidebar and TopBar fixed
+      backgroundColor: 'transparent',
+      margin: 0,
+      padding: 0
     }}>
-      <h1>Welcome back, {user ? user.username : 'User'}! 👋</h1>
-      
+      {/* 1. Side Navigation*/}
+      <Sidebar />
+
+      {/* 2. Main Work Area (TopBar + Content) */}
       <div style={{ 
-        background: 'rgba(255,255,255,0.1)', 
-        padding: '20px', 
-        borderRadius: '15px',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.2)',
-        maxWidth: '600px',
-        width: '100%'
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column',
+        minWidth: 0 // Prevents layout breaking when content is wide
       }}>
-        <p>This is your protected dashboard.</p>
-        <p>Only logged-in users can see this.</p>
         
-        <button 
-          onClick={logout}
-          style={{
-            marginTop: '20px',
-            padding: '10px 20px',
-            background: '#ff7675',
-            border: 'none',
-            borderRadius: '8px',
-            color: 'white',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            fontWeight: 'bold'
-          }}
-        >
-          Logout
-        </button>
+        {/* 3. Top Navigation */}
+        <TopBar />
+
+        {/* 4. Scrollable Content Area */}
+        <main style={{ 
+          flex: 1, 
+          padding: '40px', 
+          overflowY: 'auto', // Only the files area scrolls
+          color: 'var(--text-color)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <header style={{ marginBottom: '32px' }}>
+            <h1 style={{ 
+                fontSize: '2.5rem', // Large header to match the scale
+                fontWeight: '600',
+                margin: 0 
+            }}>
+                My Drive
+            </h1>
+          </header>
+
+          {/* This is where the FileGrid will live */}
+          <div style={{ 
+            flex: 1,
+            border: '2px dashed var(--border-color)', 
+            borderRadius: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'var(--hover-bg)'
+          }}>
+            <div style={{ textAlign: 'center', opacity: 0.6 }}>
+              <p style={{ fontSize: '1.5rem', marginBottom: '10px' }}>Your drive is empty</p>
+              <p style={{ fontSize: '1.1rem' }}>Use the <b>+ New</b> button to upload your first file.</p>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );
