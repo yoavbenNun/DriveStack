@@ -1,59 +1,42 @@
-import { Folder, FileText, Trash2 } from "lucide-react";
+import { Folder, FileText } from "lucide-react"; 
+import FileActionMenu from './FileActionMenu';
 
-export default function FilesList({ items, onOpen, onDelete }) {
+export default function FilesList({ items, onAction }) {
   return (
-    <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, overflow: "hidden" }}>
+    <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, overflow: "visible" }}>
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 0.6fr", padding: 10, opacity: 0.75 }}>
         <div>Name</div><div>Type</div><div>Size</div><div></div>
       </div>
 
       {items.map((it) => {
-        const isFolder = it.type === "folder";
+        // folder detection logic
+        const isFolder = it.type === "folder" || !it.name.includes('.');
 
         return (
           <div
             key={it.id}
-            onDoubleClick={() => onOpen?.(it)}
+            onDoubleClick={() => onAction?.('open', it)}
             style={{
               display: "grid",
               gridTemplateColumns: "2fr 1fr 1fr 0.6fr",
               padding: 10,
               borderTop: "1px solid rgba(255,255,255,0.08)",
-              cursor: onOpen ? "pointer" : "default",
+              cursor: "pointer",
               userSelect: "none",
-              alignItems: "center"
+              alignItems: "center",
+              position: "relative" 
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {isFolder ? <Folder size={18} /> : <FileText size={18} />}
+              {isFolder ? <Folder size={18} color="#74b9ff" /> : <FileText size={18} />}
               <span>{it.name}</span>
             </div>
 
-            <div>{isFolder ? "folder" : "file"}</div>
+            <div>{isFolder ? "Folder" : "File"}</div>
             <div>{it.size ?? "-"}</div>
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                title="Delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete?.(it);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  color: "inherit",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  padding: "6px 10px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <Trash2 size={16} />
-                Delete
-              </button>
+              <FileActionMenu file={it} onAction={onAction} />
             </div>
           </div>
         );
