@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { listFiles } from "../services/filesService";
+import { listFiles, deleteFile, getFileById } from "../services/filesService";
 import FilesToolbar from "../components/files/FilesToolbar";
 import FilesGrid from "../components/files/FilesGrid";
 import FilesList from "../components/files/FilesList";
-import { deleteFile } from "../services/filesService";
-import { getFileById } from "../services/filesService";
-
-function toDataUrl(file) {
-  if (!file?.content) return null;
-  const mime = file.mime || "application/octet-stream";
-  return `data:${mime};base64,${file.content}`;
-}
 
 function isTextMime(mime) {
-  return (mime || "").startsWith("text/")
-    || ["application/json", "application/xml"].includes(mime);
+  return (mime || "").startsWith("text/") ||
+    ["application/json", "application/xml"].includes(mime);
 }
 
 function base64ToText(base64) {
@@ -25,14 +17,39 @@ function base64ToText(base64) {
   }
 }
 
+async function base64ToBlobUrl(base64, mime) {
+  const clean = String(base64 || "")
+    .replace(/\s/g, "")
+    .replace(/^data:.*;base64,/, "");
+
+  const bin = atob(clean);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+  const blob = new Blob([bytes], { type: mime || "application/octet-stream" });
+  return URL.createObjectURL(blob);
+}
+
+function guessMime(name, mime) {
+  if (mime && mime !== "application/octet-stream") return mime;
+  const n = (name || "").toLowerCase();
+  if (n.endsWith(".pdf")) return "application/pdf";
+  if (n.endsWith(".png")) return "image/png";
+  if (n.endsWith(".jpg") || n.endsWith(".jpeg")) return "image/jpeg";
+  if (n.endsWith(".txt")) return "text/plain";
+  return mime || "application/octet-stream";
+}
+
 export default function MyDrive({ onReady, onFolderChange }) {
   const [viewMode, setViewMode] = useState("grid");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [currentFolderId, setCurrentFolderId] = useState(null); // null = root
-  const [preview, setPreview] = useState(null); // {id,name,content?}
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+
+  const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [blobUrl, setBlobUrl] = useState(null);
 
   async function refresh() {
     setLoading(true);
@@ -53,7 +70,6 @@ export default function MyDrive({ onReady, onFolderChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // notify parent (Dashboard) so Sidebar can upload into current folder
   useEffect(() => {
     onFolderChange?.(currentFolderId);
   }, [currentFolderId, onFolderChange]);
@@ -69,18 +85,37 @@ export default function MyDrive({ onReady, onFolderChange }) {
     [loading, error, visibleItems]
   );
 
-  async function openItem(item) {
-    if (item.type === "folder") {
-      setCurrentFolderId(item.id);
-      return;
-    }
+  // Cleanup blob url on unmount / change
+  useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
 
-    setPreviewLoading(true);
-    try {
-      const full = await getFileById(item.id); 
-      console.log("FULL:", full);
-      console.log("mime:", full?.mime, "contentLen:", full?.content?.length);
-      setPreview({ ...item, ...full });
+  async function openItem(item) {
+  if (item.type === "folder") {
+    setCurrentFolderId(item.id);
+    return;
+  }
+
+  setPreviewLoading(true);
+  try {
+    const full = await getFileById(item.id);
+    const finalMime = guessMime(item?.name, full?.mime);
+
+    console.log("mime:", full?.mime);
+    console.log("size(meta):", full?.size);
+    console.log("base64Len:", full?.content?.length);
+    console.log("prefix:", full?.content?.slice(0, 12));
+
+    const url = full?.content ? await base64ToBlobUrl(full.content, finalMime) : null;
+
+    setBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+
+      setPreview({ ...item, ...full, mime: finalMime });
     } catch (e) {
       alert(e.message || "Failed to open file");
     } finally {
@@ -93,7 +128,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
     const curFolder = items.find((x) => x.id === currentFolderId);
     setCurrentFolderId(curFolder?.parentId ?? null);
   }
-  
+
   async function handleDelete(item) {
     if (!window.confirm(`Delete "${item.name}"?`)) return;
     try {
@@ -103,23 +138,19 @@ export default function MyDrive({ onReady, onFolderChange }) {
       alert(e.message || "Delete failed");
     }
   }
-  
-  function guessMime(name, mime) {
-    if (mime && mime !== "application/octet-stream") return mime;
-    const n = (name || "").toLowerCase();
-    if (n.endsWith(".pdf")) return "application/pdf";
-    if (n.endsWith(".png")) return "image/png";
-    if (n.endsWith(".jpg") || n.endsWith(".jpeg")) return "image/jpeg";
-    if (n.endsWith(".txt")) return "text/plain";
-    return mime || "application/octet-stream";
+
+  function closePreview() {
+    setPreview(null);
+    setBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   }
 
-  const mime = guessMime(preview?.name, preview?.mime);
-  const dataUrl = preview?.content ? `data:${mime};base64,${preview.content}` : null;
+  const mime = preview?.mime || "application/octet-stream";
 
   return (
     <div style={{ padding: 24 }}>
-      {/* Back + current path */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={goBack}
@@ -167,6 +198,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
           )}
         </div>
       )}
+
       {previewLoading && <div style={{ marginTop: 12 }}>Opening...</div>}
 
       {preview && (
@@ -178,9 +210,9 @@ export default function MyDrive({ onReady, onFolderChange }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 99999
+            zIndex: 99999,
           }}
-          onClick={() => setPreview(null)}
+          onClick={closePreview}
         >
           <div
             style={{
@@ -190,14 +222,14 @@ export default function MyDrive({ onReady, onFolderChange }) {
               background: "var(--sidebar-bg)",
               border: "1px solid var(--border-color)",
               borderRadius: 16,
-              padding: 18
+              padding: 18,
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div style={{ fontWeight: 700 }}>{preview.name}</div>
               <button
-                onClick={() => setPreview(null)}
+                onClick={closePreview}
                 style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer" }}
               >
                 ✕
@@ -208,51 +240,65 @@ export default function MyDrive({ onReady, onFolderChange }) {
               id: {preview.id}
             </div>
 
-            {dataUrl && mime.startsWith("image/") && (
-            <img
-              src={dataUrl}
-              alt={preview.name}
-              style={{ width: "100%", borderRadius: 12, marginTop: 12 }}
-            />
-          )}
+            {blobUrl && mime.startsWith("image/") && (
+              <img
+                src={blobUrl}
+                alt={preview.name}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "65vh",
+                  width: "auto",
+                  height: "auto",
+                  display: "block",
+                  marginTop: 12,
+                  marginInline: "auto",
+                  borderRadius: 12
+                }}
+              />
+            )}
 
-          {dataUrl && mime === "application/pdf" && (
-            <iframe
-              title="pdf"
-              src={dataUrl}
-              style={{ width: "100%", height: "70vh", border: "none", marginTop: 12 }}
-            />
-          )}
+            {blobUrl && mime === "application/pdf" && (
+              <div style={{ marginTop: 12 }}>
+                <iframe
+                  title="pdf"
+                  src={blobUrl}
+                  style={{ width: "100%", height: "65vh", border: "none" }}
+                />
+                <a href={blobUrl} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 8 }}>
+                  Open in new tab
+                </a>
+              </div>
+            )}
 
-          {preview?.content && isTextMime(mime) && (
-            <pre style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
-              {base64ToText(preview.content)}
-            </pre>
-          )}
+            {preview?.content && isTextMime(mime) && (
+              <pre style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
+                {base64ToText(preview.content)}
+              </pre>
+            )}
 
-          {dataUrl && !mime.startsWith("image/") && mime !== "application/pdf" && !isTextMime(mime) && (
-            <a
-              href={dataUrl}
-              download={preview.name}
-              style={{
-                display: "inline-block",
-                marginTop: 12,
-                padding: "10px 12px",
-                border: "1px solid var(--border-color)",
-                borderRadius: 10,
-                color: "inherit",
-                textDecoration: "none"
-              }}
-            >
-              Download file
-            </a>
-          )}
+            {blobUrl && !mime.startsWith("image/") && mime !== "application/pdf" && !isTextMime(mime) && (
+              <a
+                href={blobUrl}
+                download={preview.name}
+                style={{
+                  display: "inline-block",
+                  marginTop: 12,
+                  padding: "10px 12px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 10,
+                  color: "inherit",
+                  textDecoration: "none",
+                }}
+              >
+                Download file
+              </a>
+            )}
 
-          {!dataUrl && (
-            <div style={{ marginTop: 12, opacity: 0.7 }}>
-              (No content returned)
-            </div>
-          )}
+            {!blobUrl && (
+              <div style={{ marginTop: 12, opacity: 0.7 }}>
+                (No content returned)
+              </div>
+            )}
           </div>
         </div>
       )}

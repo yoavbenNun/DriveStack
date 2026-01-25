@@ -1,57 +1,55 @@
-const net = require('net');
+// web-server/src/services/TcpClient.js
+const net = require("net");
 
 class TcpClient {
-    constructor(port, host) {
-        this.port = port;
-        this.host = host || '127.0.0.1'; // default host
-    }
+  constructor(port, host) {
+    this.port = port;
+    this.host = host || "127.0.0.1";
+  }
 
-    /**
-     * Sends a command to the C++ server and returns the response.
-     * @param {string} command - The command string (e.g., "SEARCH query")
-     * @returns {Promise<string>} - The server's response
-     */
-    send(command) {
-        return new Promise((resolve, reject) => {
-            const client = new net.Socket();
-            let responseBuffer = '';
+  send(command) {
+    return new Promise((resolve, reject) => {
+      const client = new net.Socket();
+      const chunks = [];
+      let settled = false;
 
-            // Server connection
-            client.connect(this.port, this.host, () => {
-                client.write(command + '\n');
-            });
+      const finishResolve = (buf) => {
+        if (settled) return;
+        settled = true;
+        resolve(buf.toString("utf8"));
+      };
 
-            // getting information
-            let timer = null;
+      const finishReject = (err) => {
+        if (settled) return;
+        settled = true;
+        reject(err);
+      };
 
-            client.on('data', (data) => {
-            responseBuffer += data.toString();
+      client.connect(this.port, this.host, () => {
+        // 
+        client.write(command + "\n");
+        client.end();
+      });
 
-            // wait briefly for more chunks
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(() => {
-                client.end();
-            }, 30);
-            });
+      client.on("data", (data) => {
+        chunks.push(data); // 
+      });
 
-            // close connection
-            client.on('close', () => {
-                resolve(responseBuffer.trim()); // return valid answer
-            });
+      client.on("end", () => {
+        finishResolve(Buffer.concat(chunks));
+      });
 
-            // error handling
-            client.on('error', (err) => {
-                reject(new Error(`TCP Connection Error: ${err.message}`));
-            });
+      client.on("error", (err) => {
+        finishReject(new Error(`TCP Connection Error: ${err.message}`));
+      });
 
-            // Timeout exception handling
-            client.setTimeout(5000); // 5 seconds
-            client.on('timeout', () => {
-                client.destroy();
-                reject(new Error('TCP Connection Timed Out'));
-            });
-        });
-    }
+      client.setTimeout(30000);
+      client.on("timeout", () => {
+        client.destroy();
+        finishReject(new Error("TCP Connection Timed Out"));
+      });
+    });
+  }
 }
 
 module.exports = TcpClient;

@@ -13,6 +13,10 @@ function normalizeType(type) {
   return "file";
 }
 
+function cleanBase64(s) {
+  return String(s || "").replace(/\r/g, "").replace(/\s/g, "");
+}
+
 // GET /api/files
 exports.getAllFiles = (req, res) => {
   const allFiles = FileModel.getAll(); 
@@ -34,14 +38,11 @@ exports.updateFileById = async (req, res) => {
     meta.name = name.trim();
   }
 
-  // אם אתם מאפשרים move בין תיקיות
   if (parentId !== undefined) {
     meta.parentId = parentId || null;
   }
 
   meta.updatedAt = new Date().toISOString();
-
-  // אם יש לכם FileModel.update() אפשר להשתמש בו, אבל אם זה בזיכרון זה מספיק
   return res.status(204).end();
 };
 
@@ -61,7 +62,7 @@ exports.createFileOrDir = async (req, res) => {
   if (t === "file") {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
-      const encodedContent = String(content || "").replace(/\s/g, ""); 
+      const encodedContent = cleanBase64(content);
       await client.send(`POST ${id} ${encodedContent}`);
     } catch (e) {
       return res.status(404).json({ error: "Failed to create file on storage server" });
@@ -86,20 +87,24 @@ exports.createFileOrDir = async (req, res) => {
 };
 
 // GET /api/files/:id
+function extractBodyFromCppResponse(resp) {
+  const s = String(resp || "");
+  const idx = s.indexOf("\n\n");
+  let body = idx >= 0 ? s.slice(idx + 2) : s;
+
+  // if still start with status 200/404 make down the first line 
+  body = body.replace(/^\s*\d{3}.*\n/, "");
+  return body.replace(/\r/g, "").replace(/\s/g, "");
+}
+
 exports.getFileById = async (req, res) => {
   const id = req.params.id;
   const meta = FileModel.findById(id);
 
   if (!meta) return res.status(404).json({ error: "File not found" });
 
-  // Folder has no content in storage
   if (meta.type !== "file") {
-    return res.status(200).json({
-      ...meta,
-      content: null,
-      encoding: meta.encoding || null,
-      mime: meta.mime || null,
-    });
+    return res.status(200).json({ ...meta, content: null });
   }
 
   const client = new TcpClient(CPP_PORT, CPP_HOST);
@@ -107,19 +112,23 @@ exports.getFileById = async (req, res) => {
   try {
     const response = await client.send(`GET ${id}`);
 
-    if (response.startsWith("404")) {
+    if (String(response).startsWith("404")) {
       return res.status(404).json({ error: "File content not found on storage" });
     }
 
-    const parts = response.split("\n\n");
-    const body = parts.length > 1 ? parts.slice(1).join("\n\n") : "";
+    const content = extractBodyFromCppResponse(response);
 
-    // clean base64 from newlines/spaces
-    const cleanBase64 = String(body).replace(/\r/g, "").replace(/\s/g, "");
+    if (!/^[A-Za-z0-9+/=]*$/.test(content) || content.length < 50) {
+      return res.status(500).json({
+        error: "Corrupted base64 returned from storage",
+        sample: content.slice(0, 60),
+        len: content.length
+      });
+    }
 
     return res.status(200).json({
       ...meta,
-      content: cleanBase64,
+      content,
       encoding: meta.encoding || "base64",
       mime: meta.mime || "application/octet-stream",
       size: meta.size ?? null,
