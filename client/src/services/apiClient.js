@@ -5,35 +5,39 @@ export function getToken() {
   return localStorage.getItem("token"); 
 }
 
-async function request(path, { method = "GET", headers = {}, body } = {}) {
-  const token = getToken();
-
-  const res = await fetch(`${API_BASE}${path}`, {
+async function request(method, url, body) {
+  const res = await fetch(url, {
     method,
-    headers: {
-      ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
   });
 
-  const contentType = res.headers.get("content-type") || "";
-  const data = contentType.includes("application/json") ? await res.json() : await res.text();
-
   if (!res.ok) {
-    const msg =
-      (data && data.message) ||
-      (typeof data === "string" ? data : "Request failed");
+    let msg = `HTTP ${res.status}`;
+    try {
+      const err = await res.json();
+      msg = err?.error || err?.message || msg;
+    } catch {}
     throw new Error(msg);
   }
 
-  return data;
+  if (res.status === 204 || res.status === 205) return null;
+
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 export const apiClient = {
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: "POST", body }),
-  del: (path) => request(path, { method: "DELETE" }),
-  patch: (path, body) => request(path, { method: "PATCH", body }),
+  get: (url) => request("GET", url),
+  post: (url, body) => request("POST", url, body),
+  patch: (url, body) => request("PATCH", url, body),
+  delete: (url) => request("DELETE", url),
 };
+

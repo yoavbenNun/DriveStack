@@ -1,13 +1,17 @@
 import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, HardDrive, Users, Clock, Star, Trash2, Cloud, LogOut, FolderPlus, Upload } from 'lucide-react';
-import { createFolder, uploadFile } from '../services/filesService';
+import {
+  Plus, HardDrive, Users, Clock, Star, Trash2, Cloud, LogOut, FolderPlus, Upload
+} from 'lucide-react';
+import { createFolder, uploadFile, uploadFolder } from '../services/filesService';
 
-const Sidebar = ({ onDriveRefresh }) => {
+const Sidebar = ({ onDriveRefresh, currentFolderId }) => {
   const { logout, user } = useAuth();
   const activeTab = 'my-drive';
   const [open, setOpen] = useState(false);
+
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
 
   const menuItems = [
     { id: 'my-drive', icon: HardDrive, label: 'My Drive' },
@@ -23,31 +27,58 @@ const Sidebar = ({ onDriveRefresh }) => {
     if (!name) return;
 
     try {
-      await createFolder(name);
+      await createFolder(name, currentFolderId);
       onDriveRefresh?.();
     } catch (err) {
       alert(err.message || 'Failed to create folder');
     }
   }
 
-  function handleUploadClick() {
+  function handleUploadFileClick() {
     setOpen(false);
     fileInputRef.current?.click();
   }
 
+  function handleUploadFolderClick() {
+    setOpen(false);
+    folderInputRef.current?.click();
+  }
+
   async function handleFileSelected(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     try {
-      await uploadFile(file);
+      await uploadFile(files[0], currentFolderId);
       onDriveRefresh?.();
     } catch (err) {
-      alert(err.message || 'Upload failed');
+      alert(err.message || "Upload failed");
     } finally {
-      e.target.value = '';
+      e.target.value = "";
     }
   }
+
+async function handleFolderSelected(e) {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  try {
+    const result = await uploadFolder(files, currentFolderId);
+    onDriveRefresh?.();
+
+    if (result?.failed?.length) {
+      console.log("Failed uploads:", result.failed);
+      alert(`Uploaded ${result.uploaded} files. Failed: ${result.failed.length} (see console)`);
+    } else {
+      alert(`Uploaded ${result?.uploaded ?? "all"} files successfully`);
+    }
+  } catch (err) {
+    alert(err.message || "Upload folder failed");
+  } finally {
+    e.target.value = "";
+  }
+}
+
 
   return (
     <div
@@ -72,12 +103,22 @@ const Sidebar = ({ onDriveRefresh }) => {
         <span style={{ fontSize: '1.6rem', fontWeight: '700' }}>DriveClone</span>
       </div>
 
-      {/* Hidden input (useRef requirement) */}
+      {/* Hidden input: upload single file */}
       <input
         type="file"
         ref={fileInputRef}
         style={{ display: 'none' }}
         onChange={handleFileSelected}
+      />
+
+      {/* Hidden input: upload folder (Chrome/Edge) */}
+      <input
+        type="file"
+        ref={folderInputRef}
+        style={{ display: 'none' }}
+        multiple
+        {...{ webkitdirectory: "true", directory: "true" }}
+        onChange={handleFolderSelected}
       />
 
       {/* NEW button + dropdown */}
@@ -141,7 +182,7 @@ const Sidebar = ({ onDriveRefresh }) => {
             <div style={{ height: 1, background: 'var(--border-color)' }} />
 
             <button
-              onClick={handleUploadClick}
+              onClick={handleUploadFileClick}
               style={{
                 width: '100%',
                 background: 'transparent',
@@ -157,6 +198,27 @@ const Sidebar = ({ onDriveRefresh }) => {
             >
               <Upload size={18} />
               Upload File
+            </button>
+
+            <div style={{ height: 1, background: 'var(--border-color)' }} />
+
+            <button
+              onClick={handleUploadFolderClick}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                padding: '14px 16px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <Upload size={18} />
+              Upload Folder
             </button>
           </div>
         )}

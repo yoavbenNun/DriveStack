@@ -5,6 +5,7 @@ import MyDrive from './MyDrive';
 
 const DashboardPage = () => {
   const [driveApi, setDriveApi] = useState(null);
+  const [currentFolderId, setCurrentFolderId] = useState(null);
 
   return (
     <div style={{
@@ -17,7 +18,10 @@ const DashboardPage = () => {
       padding: 0
     }}>
       {/* 1. Side Navigation */}
-      <Sidebar onDriveRefresh={() => driveApi?.refresh()} />
+      <Sidebar
+        onDriveRefresh={() => driveApi?.refresh()}
+        currentFolderId={currentFolderId}
+      />
 
       {/* 2. Main Work Area (TopBar + Content) */}
       <div style={{
@@ -44,8 +48,11 @@ const DashboardPage = () => {
             </h1>
           </header>
 
-          {/* expose refresh to Sidebar */}
-          <MyDrive onReady={setDriveApi} />
+          {/* expose refresh + current folder to Dashboard */}
+          <MyDrive
+            onReady={setDriveApi}
+            onFolderChange={setCurrentFolderId}
+          />
         </main>
       </div>
     </div>
