@@ -32,7 +32,7 @@ exports.updateFileById = async (req, res) => {
     return res.status(404).json({ error: "File not found" });
   }
 
-  const { name, parentId } = req.body || {};
+  const { name, parentId, content } = req.body || {};
 
   if (typeof name === "string" && name.trim() !== "") {
     meta.name = name.trim();
@@ -42,8 +42,29 @@ exports.updateFileById = async (req, res) => {
     meta.parentId = parentId || null;
   }
 
-  meta.updatedAt = new Date().toISOString();
-  return res.status(204).end();
+  // Update content if provided and it's a file
+ if (content !== undefined && meta.type === 'file') {
+    const client = new TcpClient(CPP_PORT, CPP_HOST);
+    try {
+      const encodedContent = cleanBase64(content);
+
+      // delete old content first
+      try {
+          await client.send(`DELETE ${id}`);
+      } catch (delErr) {
+          console.warn(`[UPDATE] Warning: Delete failed for ${id}, proceeding to create.`);
+      }
+
+      await client.send(`POST ${id} ${encodedContent}`);
+      
+      meta.size = encodedContent.length; 
+      console.log(`[UPDATE] Re-created content for ${id} successfully`);
+
+    } catch (e) {
+      console.error("Failed to update content on C++ server:", e.message);
+      return res.status(500).json({ error: "Failed to save file content" });
+    }
+  }
 };
 
 
@@ -96,6 +117,36 @@ function extractBodyFromCppResponse(resp) {
   body = body.replace(/^\s*\d{3}.*\n/, "");
   return body.replace(/\r/g, "").replace(/\s/g, "");
 }
+
+// GET /api/files/:id/download
+exports.downloadFile = async (req, res) => {
+  const id = req.params.id;
+  const meta = FileModel.findById(id);
+
+  if (!meta) return res.status(404).json({ error: "File not found" });
+  if (meta.type !== "file") return res.status(400).json({ error: "Cannot download a folder" });
+
+  const client = new TcpClient(CPP_PORT, CPP_HOST);
+  try {
+    const response = await client.send(`GET ${id}`);
+    
+    if (String(response).startsWith("404")) {
+      return res.status(404).json({ error: "File content missing on storage" });
+    }
+
+    const base64Content = extractBodyFromCppResponse(response);
+    const fileBuffer = Buffer.from(base64Content, 'base64');
+
+    res.setHeader('Content-Disposition', `attachment; filename="${meta.name}"`);
+    res.setHeader('Content-Type', meta.mime || 'application/octet-stream');
+    res.setHeader('Content-Length', fileBuffer.length);
+
+    return res.end(fileBuffer);
+
+  } catch (e) {
+    return res.status(500).json({ error: "Download failed" });
+  }
+};
 
 exports.getFileById = async (req, res) => {
   const id = req.params.id;

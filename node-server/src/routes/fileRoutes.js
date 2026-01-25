@@ -12,6 +12,8 @@ router.get('/files', fileController.getAllFiles);
 router.get('/files/:id', fileController.getFileById);
 router.get('/search/:query', fileController.searchFiles);
 
+router.get('/files/:id/download', fileController.downloadFile);
+
 router.patch('/files/:id/permissions/:pId', permissionsController.updatePermission);
 router.patch('/files/:id', fileController.updateFileById);
 
