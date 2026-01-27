@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { apiClient } from "../services/apiClient"; // ✅ ADD
 
 const LoginPage = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -13,30 +14,20 @@ const LoginPage = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
+      // ✅ goes to http://localhost:3000/api/tokens
+      const data = await apiClient.post("/api/tokens", { username, password });
 
-      if (!response.ok) {
-        throw new Error('Login failed. Please check your credentials.');
-      }
+      const userData = { id: data.id, username };
+      const token = data.token;
 
-      const data = await response.json();
-      console.log('Login successful:', data);
-      
-      const token = data.token || 'temp-token-12345'; 
-      login(data, token);
-
-      navigate('/dashboard');
-
+      login(userData, token); // ✅ saves to localStorage token="token"
+      navigate("/dashboard");
     } catch (err) {
-      setError(err.message || 'Something went wrong');
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -46,7 +37,7 @@ const LoginPage = () => {
     <div className="login-container">
       <div className="login-card">
         <h2>Login</h2>
-        
+
         <form onSubmit={handleLogin}>
           <div className="form-group">
             <label>Username</label>
@@ -73,11 +64,11 @@ const LoginPage = () => {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        <p style={{ marginTop: '15px', fontSize: '0.9rem' }}>
+        <p style={{ marginTop: "15px", fontSize: "0.9rem" }}>
           Don't have an account? <Link to="/register">Register here</Link>
         </p>
       </div>

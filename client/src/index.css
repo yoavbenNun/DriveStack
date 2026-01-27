@@ -9,6 +9,10 @@
   --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
   --card-border: 1px solid rgba(255, 255, 255, 0.18);
   --input-bg: rgba(255, 255, 255, 0.9);
+  --bg-color: #0b1220;
+  --text-color: #eaf1ff;
+  --border-color: rgba(255,255,255,0.14);
+  --card-bg: rgba(0,0,0,0.25);
 }
 
 /* Dark Mode settings */
