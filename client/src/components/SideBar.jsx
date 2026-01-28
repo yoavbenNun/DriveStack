@@ -1,24 +1,29 @@
 import React, { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  Plus, HardDrive, Users, Clock, Star, Trash2, Cloud, LogOut, FolderPlus, Upload
-} from 'lucide-react';
+import {Plus, HardDrive, Users, Clock, Star, Trash2, Cloud, LogOut, FolderPlus, Upload} from 'lucide-react';
 import { createFolder, uploadFile, uploadFolder } from '../services/filesService';
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Sidebar = ({ onDriveRefresh, currentFolderId }) => {
   const { logout, user } = useAuth();
-  const activeTab = 'my-drive';
   const [open, setOpen] = useState(false);
-
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
-
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const activeTab =
+    location.pathname.includes("/trash") ? "trash" :
+    location.pathname.includes("/starred") ? "starred" :
+    location.pathname.includes("/shared") ? "shared" : 
+    location.pathname.includes("/recent") ? "recent" :"my-drive";
+  
   const menuItems = [
-    { id: 'my-drive', icon: HardDrive, label: 'My Drive' },
-    { id: 'shared', icon: Users, label: 'Shared with me' },
-    { id: 'recent', icon: Clock, label: 'Recent' },
-    { id: 'starred', icon: Star, label: 'Starred' },
-    { id: 'trash', icon: Trash2, label: 'Trash' },
+    { id: "my-drive", icon: HardDrive, label: "My Drive", to: "/dashboard" },
+    { id: "shared", icon: Users, label: "Shared with me", to: "/dashboard/shared-with-me" },
+    { id: "recent", icon: Clock, label: "Recent", to: "/dashboard/recent" },
+    { id: "starred", icon: Star, label: "Starred", to: "/dashboard/starred" },
+    { id: "trash", icon: Trash2, label: "Trash", to: "/dashboard/trash" },
   ];
 
   async function handleCreateFolder() {
@@ -228,6 +233,7 @@ async function handleFolderSelected(e) {
         {menuItems.map((item) => (
           <div
             key={item.id}
+            onClick={() => navigate(item.to)}
             style={{
               display: 'flex',
               alignItems: 'center',

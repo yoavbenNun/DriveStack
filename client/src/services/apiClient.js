@@ -1,11 +1,13 @@
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"; // update to the port of Node-Server
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 export function getToken() {
-  return localStorage.getItem("token"); 
+  return localStorage.getItem("token");
 }
 
-async function request(method, url, body) {
+async function request(method, url, body) { 
+  //const fullUrl = url.startsWith("http") ? url : url;
+  //console.log("API request:", method, fullUrl);
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },

@@ -17,9 +17,11 @@ function normalizeItem(raw) {
     id: raw.id ?? raw._id ?? raw.fileId,
     name: raw.name ?? raw.filename ?? raw.title,
     type: normalizeType(raw.type ?? raw.kind ?? (raw.isFolder ? "folder" : "file")),
-    parentId: raw.parentId ?? null,
+    parentId:raw.parentId ?? raw.parent ?? raw.parent_id ?? raw.parentFolderId ?? null,
     size: raw.size ?? raw.bytes ?? null,
     createdAt: raw.createdAt ?? raw.created ?? null,
+    starred: Boolean(raw.starred ?? raw.isStarred ?? false),
+    trashed: Boolean(raw.trashed ?? raw.isTrashed ?? false),
   };
 }
 
@@ -65,9 +67,6 @@ export async function uploadFile(file, parentId = null) {
   });
 }
 
-
-
-
 export async function uploadFolder(fileList, parentId = null) {
   const files = Array.from(fileList || []);
   if (files.length === 0) return;
@@ -79,9 +78,11 @@ export async function uploadFolder(fileList, parentId = null) {
 
   // 1) create folder
   const rootRes = await createFolder(rootName, parentId);
-  const rootId = rootRes.id;
-  if (!rootId) throw new Error("Server did not return folder id");
-
+  const rootId = rootRes?.id ?? rootRes?._id ?? rootRes?.file?.id ?? rootRes?.file?._id;
+  if (!rootId) {
+    console.error("createFolder response:", rootRes);
+    throw new Error("Server did not return folder id");
+  }
   // Map: "root/sub" -> folderId
   const folderIdByPath = new Map();
   folderIdByPath.set(rootName, rootId);
@@ -111,7 +112,12 @@ export async function uploadFolder(fileList, parentId = null) {
     const parentFolderId = folderIdByPath.get(parentPath);
 
     const res = await createFolder(name, parentFolderId);
-    folderIdByPath.set(path, res.id);
+    const fid = res?.id ?? res?._id ?? res?.file?.id ?? res?.file?._id;
+    if (!fid) {
+      console.error("createFolder response:", res);
+      throw new Error("Server did not return folder id");
+    }
+    folderIdByPath.set(path, fid);
   }
 
   const failed = [];
@@ -146,5 +152,19 @@ export async function getFileById(id) {
 }
 
 export async function deleteFile(id) {
+  return apiClient.delete(`/api/files/${id}`);
+}
+
+export async function moveToTrash(id) {
+  return apiClient.patch(`/api/files/${id}/trash`, { trashed: true });
+}
+
+export async function listStarred() {
+  const data = await apiClient.get("/api/files?starred=true");
+  const items = Array.isArray(data) ? data : (data.files ?? data.items ?? []);
+  return items.map(normalizeItem);
+}
+
+export async function hardDeleteFile(id) {
   return apiClient.delete(`/api/files/${id}`);
 }

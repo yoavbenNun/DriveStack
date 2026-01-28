@@ -61,8 +61,8 @@ const FileActionMenu = ({ file, onAction }) => {
             </div>
           )}
 
-          <div onClick={(e) => handleAction('favorite', e)} style={menuItemStyle}>
-            <Star size={18} /> <span>Add to Starred</span>
+          <div onClick={(e) => handleAction('star', e)} style={menuItemStyle}>
+            <Star size={18} /> <span>{file.starred ? "Remove from Starred" : "Add to Starred"}</span>
           </div>
 
           <div onClick={(e) => handleAction('share', e)} style={menuItemStyle}>
