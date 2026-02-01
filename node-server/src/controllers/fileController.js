@@ -19,9 +19,27 @@ function cleanBase64(s) {
 
 // GET /api/files
 exports.getAllFiles = (req, res) => {
-  const allFiles = FileModel.getAll(); 
-  return res.status(200).json(allFiles);
+  try {
+    let allFiles = FileModel.getAll();
+    const { starred, trashed } = req.query;
+
+    if (starred !== undefined) {
+      const s = String(starred) === "true";
+      allFiles = allFiles.filter(f => Boolean(f.starred) === s);
+    }
+
+    if (trashed !== undefined) {
+      const t = String(trashed) === "true";
+      allFiles = allFiles.filter(f => Boolean(f.trashed) === t);
+    }
+
+    return res.status(200).json(allFiles);
+  } catch (e) {
+    console.error("getAllFiles failed:", e);
+    return res.status(500).json({ error: e.message || "getAllFiles failed" });
+  }
 };
+
 
 // PATCH /api/files/:id
 exports.updateFileById = async (req, res) => {
@@ -62,7 +80,8 @@ exports.updateFileById = async (req, res) => {
 
     } catch (e) {
       console.error("Failed to update content on C++ server:", e.message);
-      return res.status(500).json({ error: "Failed to save file content" });
+      meta.updatedAt = new Date().toISOString();return res.status(200).json(meta);
+      //return res.status(500).json({ error: "Failed to save file content" });
     }
   }
 };
@@ -249,6 +268,51 @@ exports.searchFiles = async (req, res) => {
           combinedResults.push(file);
       }
   });
+  
+  const parentId = req.query.parentId ?? null;
 
-  return res.status(200).json(combinedResults);
+  const filteredResults = combinedResults.filter(f =>
+    (f.parentId ?? null) === parentId
+  );
+
+  return res.status(200).json(filteredResults);
+};
+
+// PATCH /api/files/:id/star
+exports.setStarred = (req, res) => {
+  const id = req.params.id;
+  const meta = FileModel.findById(id);
+  if (!meta) return res.status(404).json({ error: "File not found" });
+
+  meta.starred = Boolean(req.body?.starred);
+  meta.updatedAt = new Date().toISOString();
+  return res.status(200).json(meta);
+};
+
+// PATCH /api/files/:id/trash
+exports.setTrashed = (req, res) => {
+  const id = req.params.id;
+  const meta = FileModel.findById(id);
+  if (!meta) return res.status(404).json({ error: "File not found" });
+
+  meta.trashed = Boolean(req.body?.trashed);
+  meta.updatedAt = new Date().toISOString();
+  return res.status(200).json(meta);
+};
+
+// PATCH /api/files/:id/permissions
+exports.replacePermissions = (req, res) => {
+  const id = req.params.id;
+  const meta = FileModel.findById(id);
+  if (!meta) return res.status(404).json({ error: "File not found" });
+
+  const { permissions } = req.body || {};
+  if (!Array.isArray(permissions)) {
+    return res.status(400).json({ error: "permissions must be an array" });
+  }
+
+  meta.permissions = permissions;
+  meta.updatedAt = new Date().toISOString();
+
+  return res.status(200).json(meta);
 };

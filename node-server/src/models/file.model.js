@@ -13,11 +13,16 @@ class FileModel {
         this.parentId = data.parentId || null;
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = data.updatedAt || new Date().toISOString();
-        
+        this.starred = Boolean(data.starred ?? false);
+        this.trashed = Boolean(data.trashed ?? false);
+        this.deletedAt = data.deletedAt ?? null; // ISO string when moved to trash
+        this.starred = false;
+        this.trashed = false;
+
         // Permissions array - integral part of the model
         this.permissions = data.permissions || []; 
     }
-
+    
     // --- Static Methods (Database operations) ---
 
     static getAll() {
@@ -80,6 +85,18 @@ class FileModel {
         this.permissions = this.permissions.filter(p => p.pId !== pId);
         
         return this.permissions.length < initialLength;
+    }
+    setStarred(flag) {
+        this.starred = Boolean(flag);
+        filesDb.set(this.id, this);
+        return this;
+    }
+
+    setTrashed(flag) {
+        this.trashed = Boolean(flag);
+        this.deletedAt = flag ? new Date().toISOString() : null;
+        filesDb.set(this.id, this);
+        return this;
     }
 }
 

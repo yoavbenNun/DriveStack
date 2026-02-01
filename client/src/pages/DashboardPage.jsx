@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import Sidebar from '../components/SideBar';
-import TopBar from '../components/TopBar';
-import MyDrive from './MyDrive';
+import React, { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Sidebar from "../components/SideBar";
+import TopBar from "../components/TopBar";
+import MyDrive from "./MyDrive";
+import StarredPage from "./StarredPage";
+import TrashPage from "./Trash";
 
 const DashboardPage = () => {
   const [driveApi, setDriveApi] = useState(null);
@@ -34,25 +37,28 @@ const DashboardPage = () => {
         <TopBar />
 
         {/* 4. Scrollable Content Area */}
-        <main style={{
-          flex: 1,
-          padding: '40px',
-          overflowY: 'auto',
-          color: 'var(--text-color)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <header style={{ marginBottom: '32px' }}>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: '600', margin: 0 }}>
-              My Drive
-            </h1>
-          </header>
-
-          {/* expose refresh + current folder to Dashboard */}
-          <MyDrive
-            onReady={setDriveApi}
-            onFolderChange={setCurrentFolderId}
-          />
+        <main  style={{
+            flex: 1,
+            padding: "40px",
+            overflowY: "auto",
+            color: "var(--text-color)",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Routes>
+            {/* /dashboard */}
+            <Route
+              index
+              element={
+                <MyDrive onReady={setDriveApi} onFolderChange={setCurrentFolderId} />
+              }
+            />
+            <Route path="starred" element={<StarredPage />} />
+            <Route path="trash" element={<TrashPage />} />
+            <Route path="recent" element={<div>Recent</div>} />
+            <Route path="shared-with-me" element={<div>Shared</div>} />
+          </Routes>
         </main>
       </div>
     </div>

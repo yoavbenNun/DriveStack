@@ -1,19 +1,18 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { listFiles, deleteFile } from "../services/filesService"; 
 import FilesToolbar from "../components/files/FilesToolbar";
 import FilesGrid from "../components/files/FilesGrid";
 import FilesList from "../components/files/FilesList";
-import FileViewerModal from "../components/FileViewerModal";
+import FileViewerModel from "../components/FileViewerModel";
 import { ChevronRight, ArrowLeft } from "lucide-react"; 
+import { listFiles ,moveToTrash} from "../services/filesService";
+import { toggleStar } from "../services/StarredService";
 
 export default function MyDrive({ onReady, onFolderChange }) {
   const [viewMode, setViewMode] = useState("grid");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
   const [currentFolderId, setCurrentFolderId] = useState(null);
-  
   const [viewingFile, setViewingFile] = useState(null);
 
   async function refresh() {
@@ -21,6 +20,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
     setError("");
     try {
       const data = await listFiles();
+      console.log("first item:", data?.[0]);
       setItems(data);
     } catch (e) {
       setError(e.message || "Failed to load files");
@@ -52,27 +52,39 @@ export default function MyDrive({ onReady, onFolderChange }) {
 
   // action handler
   const handleAction = async (action, file) => {
-    if (action === 'open') {
-      if (file.type === 'folder') {
-        // enter folder
+    if (action === "open") {
+      if (file.type === "folder") {
         setCurrentFolderId(file.id);
       } else {
-        // open file
         setViewingFile(file);
       }
     }
-    else if (action === 'delete') {
-      if (window.confirm(`Delete ${file.name}?`)) {
-        try {
-          await deleteFile(file.id);
-          refresh();
-        } catch(e) { alert("Failed to delete"); }
+
+    else if (action === "star") {
+      try {
+        await toggleStar(file.id, file.starred);
+        await refresh(); 
+      } catch (e) {
+        alert(e.message || "Failed to update starred");
       }
     }
-    else if (action === 'download') {
-      window.open(`http://localhost:3000/api/files/${file.id}/download`);
+
+    else if (action === "delete") {
+      if (window.confirm(`Move ${file.name} to trash?`)) {
+        try {
+          await moveToTrash(File.id);  // PATCH /trash
+          await refresh();
+        } catch (e) {
+          alert(e.message || "Failed to move to trash");
+        }
+      }
+    }
+
+    else if (action === "download") {
+      window.open(`/api/files/${file.id}/download`);
     }
   };
+
 
   // Parent folder navigation
   const goBack = () => {
@@ -147,7 +159,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
       )}
 
       {viewingFile && (
-        <FileViewerModal 
+        <FileViewerModel 
             file={viewingFile} 
             onClose={() => setViewingFile(null)} 
             onSave={() => {

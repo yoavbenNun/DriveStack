@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Download } from 'lucide-react';
 
-const FileViewerModal = ({ file, onClose, onSave }) => {
+const FileViewerModel = ({ file, onClose, onSave }) => {
   const [content, setContent] = useState('');
   const [isEditable, setIsEditable] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,4 +95,4 @@ const FileViewerModal = ({ file, onClose, onSave }) => {
   );
 };
 
-export default FileViewerModal;
+export default FileViewerModel;
