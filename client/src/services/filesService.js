@@ -172,3 +172,7 @@ export async function hardDeleteFile(id) {
 export async function restoreFile(id) {
   return apiClient.patch(`/api/files/${id}/trash`, { trashed: false });
 }
+
+export async function renameFile(id, newName) {
+  return apiClient.patch(`/api/files/${id}`, { name: newName });
+}

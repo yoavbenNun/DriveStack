@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MoreHorizontal, FileText, Download, Trash2, Share2, Star, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, FileText, Download, Trash2, Share2, Star, RotateCcw, Edit2 } from 'lucide-react';
 
 const FileActionMenu = ({ file, onAction, isTrash }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -68,6 +68,10 @@ const FileActionMenu = ({ file, onAction, isTrash }) => {
             <>
               <div onClick={(e) => handleAction('open', e)} style={menuItemStyle}>
                 <FileText size={18} /> <span>Open</span>
+              </div>
+
+              <div onClick={(e) => handleAction('rename', e)} style={menuItemStyle}>
+                <Edit2 size={18} /> <span>Rename</span>
               </div>
               
               {file.type !== 'folder' && (

@@ -4,7 +4,7 @@ import FilesGrid from "../components/files/FilesGrid";
 import FilesList from "../components/files/FilesList";
 import FileViewerModel from "../components/FileViewerModel";
 import { ChevronRight, ArrowLeft } from "lucide-react"; 
-import { listFiles ,moveToTrash} from "../services/filesService";
+import { listFiles ,moveToTrash, renameFile} from "../services/filesService";
 import { toggleStar } from "../services/StarredService";
 
 export default function MyDrive({ onReady, onFolderChange }) {
@@ -59,6 +59,18 @@ export default function MyDrive({ onReady, onFolderChange }) {
         setViewingFile(file);
       }
     }
+
+    else if (action === "rename") {
+      const newName = window.prompt("Enter new name:", file.name);
+      if (newName && newName !== file.name) {
+        try {
+          await renameFile(file.id, newName);
+          await refresh(); 
+        }   catch (e) {
+        alert("Failed to rename file");
+      }
+    }
+  }
 
     else if (action === "star") {
       try {
