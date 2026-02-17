@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MoreHorizontal, FileText, Download, Trash2, Share2, Star } from 'lucide-react';
+import { MoreHorizontal, FileText, Download, Trash2, Share2, Star, RotateCcw } from 'lucide-react';
 
-const FileActionMenu = ({ file, onAction }) => {
+const FileActionMenu = ({ file, onAction, isTrash }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -51,29 +51,46 @@ const FileActionMenu = ({ file, onAction }) => {
           marginTop: '5px'
         }}>
           
-          <div onClick={(e) => handleAction('open', e)} style={menuItemStyle}>
-            <FileText size={18} /> <span>Open</span>
-          </div>
-          
-          {file.type !== 'folder' && (
-            <div onClick={(e) => handleAction('download', e)} style={menuItemStyle}>
-              <Download size={18} /> <span>Download</span>
-            </div>
+         {isTrash ? (
+            <>
+              <div onClick={(e) => handleAction('restore', e)} style={menuItemStyle}>
+                <RotateCcw size={18} /> <span>Restore</span>
+              </div>
+              
+              <div style={{ borderTop: '1px solid #333', margin: '8px 0' }}></div>
+
+              <div onClick={(e) => handleAction('deleteForever', e)} style={{ ...menuItemStyle, color: '#ff7675' }}>
+                <Trash2 size={18} /> <span>Delete Forever</span>
+              </div>
+            </>
+            // ordinary file actions when not in trash
+          ) : (
+            <>
+              <div onClick={(e) => handleAction('open', e)} style={menuItemStyle}>
+                <FileText size={18} /> <span>Open</span>
+              </div>
+              
+              {file.type !== 'folder' && (
+                <div onClick={(e) => handleAction('download', e)} style={menuItemStyle}>
+                  <Download size={18} /> <span>Download</span>
+                </div>
+              )}
+
+              <div onClick={(e) => handleAction('star', e)} style={menuItemStyle}>
+                <Star size={18} /> <span>{file.starred ? "Remove from Starred" : "Add to Starred"}</span>
+              </div>
+
+              <div onClick={(e) => handleAction('share', e)} style={menuItemStyle}>
+                <Share2 size={18} /> <span>Share</span>
+              </div>
+
+              <div style={{ borderTop: '1px solid #333', margin: '8px 0' }}></div>
+
+              <div onClick={(e) => handleAction('delete', e)} style={{ ...menuItemStyle, color: '#ff7675' }}>
+                <Trash2 size={18} /> <span>Delete</span>
+              </div>
+            </>
           )}
-
-          <div onClick={(e) => handleAction('star', e)} style={menuItemStyle}>
-            <Star size={18} /> <span>{file.starred ? "Remove from Starred" : "Add to Starred"}</span>
-          </div>
-
-          <div onClick={(e) => handleAction('share', e)} style={menuItemStyle}>
-            <Share2 size={18} /> <span>Share</span>
-          </div>
-
-          <div style={{ borderTop: '1px solid #333', margin: '8px 0' }}></div>
-
-          <div onClick={(e) => handleAction('delete', e)} style={{ ...menuItemStyle, color: '#ff7675' }}>
-            <Trash2 size={18} /> <span>Delete</span>
-          </div>
         </div>
       )}
     </div>

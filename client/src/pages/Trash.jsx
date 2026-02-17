@@ -1,108 +1,98 @@
-import { useEffect, useState } from "react";
-import { apiClient } from "../services/apiClient";
-import { hardDeleteFile } from "../services/filesService";
+import React, { useEffect, useState, useMemo } from "react";
+import FilesToolbar from "../components/files/FilesToolbar";
+import FilesGrid from "../components/files/FilesGrid";
+import FilesList from "../components/files/FilesList";
+import FileViewerModel from "../components/FileViewerModel";
+import { listFiles } from "../services/filesService";
+import { restoreFile, hardDeleteFile } from "../services/filesService"; 
 
-export default function TrashPage() {
-  const [trashFiles, setTrashFiles] = useState([]);
+export default function Trash({ onReady }) {
+  const [viewMode, setViewMode] = useState("grid");
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const [error, setError] = useState("");
+  const [viewingFile, setViewingFile] = useState(null);
 
-  async function loadTrash() {
+  async function refresh() {
     setLoading(true);
-    setErr("");
+    setError("");
     try {
-      const data = await apiClient.get("/api/files?trashed=true");
-      setTrashFiles(Array.isArray(data) ? data : []);
+      const data = await listFiles();
+      setItems(data);
     } catch (e) {
-      setErr(e.message || "Failed to load trash");
+      setError(e.message || "Failed to load trash");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadTrash();
+    refresh();
+    if (onReady) onReady({ refresh });
   }, []);
 
-  async function handleRestore(fileId) {
-    setErr("");
-    try {
-      await apiClient.patch(`/api/files/${fileId}/trash`, { trashed: false });
-      setTrashFiles((prev) => prev.filter((f) => f.id !== fileId));
-      window.dispatchEvent(new Event("files-changed"));
-    } catch (e) {
-      setErr(e.message || "Restore failed");
-    }
-  }
+  // only trashed items should be visible in trash page
+  const visibleItems = useMemo(() => {
+    if (loading || error) return [];
+    return items.filter((it) => it.trashed === true);
+  }, [items, loading, error]);
 
-  
-  async function handleDeleteForever(fileId) {
-    const ok = window.confirm("Delete forever? This cannot be undone.");
-    if (!ok) return;
-  
-    setErr("");
-    try {
-      await hardDeleteFile(fileId);
-      setTrashFiles((prev) => prev.filter((f) => f.id !== fileId));
-      await loadTrash();
-      window.dispatchEvent(new Event("files-changed"));
-    } catch (e) {
-      setErr(e.message || "Delete forever failed");
+  const isEmpty = !loading && !error && visibleItems.length === 0;
+
+  const handleAction = async (action, file) => {
+    if (action === "restore") {
+      try {
+        await restoreFile(file.id); // function to restore file from trash
+        await refresh();
+      } catch (e) {
+        alert("Failed to restore file");
+      }
+    } 
+    else if (action === "deleteForever") {
+      if (window.confirm(`Permanently delete ${file.name}? This cannot be undone.`)) {
+        try {
+          await hardDeleteFile(file.id); // final delete function
+          await refresh();
+        } catch (e) {
+          alert("Failed to delete file");
+        }
+      }
     }
-  }
+  };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>Trash</h2>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto' }}>
+      
+      <header style={{ marginBottom: '20px' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: '700', margin: 0 }}>Trash</h1>
+      </header>
 
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={loadTrash} disabled={loading}>
-          Refresh
-        </button>
-      </div>
+      <FilesToolbar
+        viewMode={viewMode}
+        onToggle={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
+        onRefresh={refresh}
+      />
 
-      {err && <div style={{ marginBottom: 12, color: "red" }}>{err}</div>}
+      {loading && <div style={{ marginTop: 20 }}>Loading...</div>}
+      {error && <div style={{ marginTop: 20, color: "tomato" }}>{error}</div>}
+      
+      {isEmpty && (
+        <div style={{ 
+            marginTop: 40, opacity: 0.6, textAlign: 'center', fontSize: '1.1rem',
+            border: '2px dashed var(--border-color)', padding: '40px', borderRadius: '20px'
+        }}>
+            Trash is empty.
+        </div>
+      )}
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : trashFiles.length === 0 ? (
-        <p>No deleted files 🎉</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {trashFiles.map((f) => (
-            <li
-              key={f.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: 10,
-                padding: 12,
-                marginBottom: 10,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: "bold" }}>{f.name}</div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  {f.type} • deletedAt: {f.deletedAt || "?"}
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>id: {f.id}</div>
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => handleRestore(f.id)}>Restore</button>
-
-                <button
-                  onClick={() => handleDeleteForever(f.id)}
-                  style={{ opacity: 0.6 }}
-                >
-                  Delete Forever
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+      {!loading && !error && visibleItems.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          {viewMode === "grid" ? (
+            <FilesGrid items={visibleItems} onAction={handleAction} isTrash={true} /> 
+          ) : (
+            <FilesList items={visibleItems} onAction={handleAction} isTrash={true} />
+          )}
+        </div>
       )}
     </div>
   );

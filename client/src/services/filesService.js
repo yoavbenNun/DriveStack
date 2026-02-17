@@ -168,3 +168,7 @@ export async function listStarred() {
 export async function hardDeleteFile(id) {
   return apiClient.delete(`/api/files/${id}`);
 }
+
+export async function restoreFile(id) {
+  return apiClient.patch(`/api/files/${id}/trash`, { trashed: false });
+}

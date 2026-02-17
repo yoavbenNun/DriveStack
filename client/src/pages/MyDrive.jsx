@@ -45,7 +45,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
   const visibleItems = useMemo(() => {
     if (loading || error) return [];
     const cur = currentFolderId ?? null;
-    return items.filter((it) => (it.parentId ?? null) === cur);
+    return items.filter((it) => (it.parentId ?? null) === cur && !it.trashed);
   }, [items, currentFolderId, loading, error]);
 
   const isEmpty = !loading && !error && visibleItems.length === 0;
@@ -72,7 +72,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
     else if (action === "delete") {
       if (window.confirm(`Move ${file.name} to trash?`)) {
         try {
-          await moveToTrash(File.id);  // PATCH /trash
+          await moveToTrash(file.id);  // PATCH /trash
           await refresh();
         } catch (e) {
           alert(e.message || "Failed to move to trash");
