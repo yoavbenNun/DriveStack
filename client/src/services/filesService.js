@@ -176,3 +176,11 @@ export async function restoreFile(id) {
 export async function renameFile(id, newName) {
   return apiClient.patch(`/api/files/${id}`, { name: newName });
 }
+
+export async function shareFile(fileId, targetEmail) {
+  return apiClient.post(`/api/files/${fileId}/share`, { email: targetEmail });
+}
+
+export async function toggleShare(id, currentStatus) {
+  return apiClient.patch(`/api/files/${id}`, { shared: !currentStatus });
+}

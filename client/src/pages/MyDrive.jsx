@@ -81,6 +81,18 @@ export default function MyDrive({ onReady, onFolderChange }) {
       }
     }
 
+    else if (action === "share") {
+      const targetEmail = window.prompt("Enter email to share with:");
+      if (targetEmail) {
+        try {
+          await shareFile(file.id, targetEmail);
+          alert("File shared successfully");
+        } catch (e) {
+          alert(e.message || "Failed to share file");
+        }
+      }
+    }
+
     else if (action === "delete") {
       if (window.confirm(`Move ${file.name} to trash?`)) {
         try {

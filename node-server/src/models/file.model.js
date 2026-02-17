@@ -17,7 +17,7 @@ class FileModel {
         this.trashed = Boolean(data.trashed ?? false);
         this.deletedAt = data.deletedAt ?? null; // ISO string when moved to trash
         this.starred = false;
-        this.trashed = false;
+        this.shared = false;
 
         // Permissions array - integral part of the model
         this.permissions = data.permissions || []; 
