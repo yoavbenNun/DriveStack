@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MoreHorizontal, FileText, Download, Trash2, Share2, Star, RotateCcw, Edit2 } from 'lucide-react';
+import { MoreHorizontal, FileText, Download, Trash2, Share2, Star, RotateCcw, Edit2, UserMinus } from 'lucide-react';
 
-const FileActionMenu = ({ file, onAction, isTrash }) => {
+const FileActionMenu = ({ file, onAction, isTrash, isShared }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -63,8 +63,32 @@ const FileActionMenu = ({ file, onAction, isTrash }) => {
                 <Trash2 size={18} /> <span>Delete Forever</span>
               </div>
             </>
-            // ordinary file actions when not in trash
-          ) : (
+            
+          )
+
+          // shared file actions (only open, download, remove access)
+          : isShared ? (
+            <>
+              <div onClick={(e) => handleAction('open', e)} style={menuItemStyle}>
+                <FileText size={18} /> <span>Open</span>
+              </div>
+
+              {file.type !== 'folder' && (
+                <div onClick={(e) => handleAction('download', e)} style={menuItemStyle}>
+                  <Download size={18} /> <span>Download</span>
+                </div>
+              )}
+
+              <div style={{ borderTop: '1px solid #333', margin: '8px 0' }}></div>
+
+              <div onClick={(e) => handleAction('delete', e)} style={{ ...menuItemStyle, color: '#ff7675' }}>
+                <UserMinus size={18} /> <span>Remove Access</span>
+              </div>
+            </>
+          )  
+
+          // ordinary file actions when not in trash 
+          : (
             <>
               <div onClick={(e) => handleAction('open', e)} style={menuItemStyle}>
                 <FileText size={18} /> <span>Open</span>

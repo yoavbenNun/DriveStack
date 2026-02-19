@@ -40,22 +40,15 @@ exports.getAllFiles = (req, res) => {
     const userId = decoded.id; 
     const { starred, trashed, shared } = req.query;
     
-    // הדפסה חדשה שתראה לנו אם ה-React באמת ביקש קבצים משותפים!
-    console.log(`==> Request from User (${decoded.username}): Query Params:`, req.query); 
-
     let allFiles;
 
     if (String(shared) === "true") {
       allFiles = FileModel.getSharedWithUser(userId);
-      console.log(`==> Found ${allFiles.length} shared files for this user!`);
       
-      // התיקון הקריטי לפרונטאנד: אנחנו מוסיפים בכוח את השדה shared=true
-      // ככה ה-React בשום מצב לא יסנן את הקובץ החוצה!
       allFiles = allFiles.map(file => ({ ...file, shared: true }));
       
     } else {
       allFiles = FileModel.getAll().filter(f => f.ownerId === userId);
-      console.log(`==> Found ${allFiles.length} owned files for this user.`);
     }
 
     if (starred !== undefined) {
@@ -366,4 +359,39 @@ exports.replacePermissions = (req, res) => {
   meta.updatedAt = new Date().toISOString();
 
   return res.status(200).json(meta);
+};
+
+// DELETE /api/files/:id/shared (for unsharing)
+exports.removeSharedFile = (req, res) => {
+    try {
+        const fileId = req.params.id;
+
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) return res.status(401).json({ error: "No token provided" });
+
+        const decoded = jwt.verify(token, SECRET_KEY);
+        const userId = decoded.id;
+
+        const file = FileModel.findById(fileId);
+        if (!file) {
+            console.log(`[RemoveShared] File ${fileId} not found`);
+            return res.status(404).json({ error: "File not found" });
+        }
+
+        if (Array.isArray(file.permissions)) {
+            const initialCount = file.permissions.length;
+            file.permissions = file.permissions.filter(p => {
+                return p.holderId !== userId && p.userId !== userId;
+            });
+            console.log(`[RemoveShared] User ${userId} removed. Permissions: ${initialCount} -> ${file.permissions.length}`);
+        } else {
+            console.log(`[RemoveShared] No permissions array found for file ${fileId}`);
+        }
+
+        return res.status(200).json({ message: "Access removed" });
+    } catch (err) {
+        console.error("[RemoveShared] Critical Error:", err.message);
+        return res.status(500).json({ error: "Internal server error" });
+    }
 };

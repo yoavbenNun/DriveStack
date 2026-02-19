@@ -3,8 +3,7 @@ import FilesToolbar from "../components/files/FilesToolbar";
 import FilesGrid from "../components/files/FilesGrid";
 import FilesList from "../components/files/FilesList";
 import FileViewerModel from "../components/FileViewerModel";
-import { listFiles, moveToTrash, renameFile } from "../services/filesService";
-import { toggleStar } from "../services/StarredService";
+import { listFiles, removeSharedAccess } from "../services/filesService";
 
 export default function SharedWithMe({ onReady }) {
   const [viewMode, setViewMode] = useState("grid");
@@ -43,39 +42,29 @@ export default function SharedWithMe({ onReady }) {
     if (action === "open") {
       setViewingFile(file);
     } 
-    else if (action === "rename") {
-      const newName = window.prompt("Enter new name:", file.name);
-      if (newName && newName !== file.name) {
-        try {
-          await renameFile(file.id, newName);
-          setItems(prev => prev.map(it => it.id === file.id ? { ...it, name: newName } : it));
-        } catch (e) {
-          alert("Failed to rename file");
-        }
-      }
-    }
-    else if (action === "star") {
-      try {
-        await toggleStar(file.id, file.starred);
-        await refresh(); 
-      } catch (e) {
-        alert("Failed to update starred");
-      }
-    }
+    
     else if (action === "delete") {
-      if (window.confirm(`Remove ${file.name} from shared items?`)) {
+      if (window.confirm(`Remove this item from your shared list?`)) {
         try {
-          await moveToTrash(file.id);
+          await removeSharedAccess(file.id); 
           await refresh();
         } catch (e) {
           alert("Failed to remove item");
         }
       }
     }
+
     else if (action === "download") {
       window.open(`/api/files/${file.id}/download`);
     }
   };
+
+  const sharedItems = useMemo(() => {
+    return visibleItems.map(item => ({
+      ...item,
+      allowedActions: ["open", "delete", "download"] 
+    }));
+  }, [visibleItems]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '40px', overflowY: 'auto' }}>
@@ -106,9 +95,9 @@ export default function SharedWithMe({ onReady }) {
       {!loading && !error && visibleItems.length > 0 && (
         <div style={{ marginTop: 24 }}>
           {viewMode === "grid" ? (
-            <FilesGrid items={visibleItems} onAction={handleAction} /> 
+            <FilesGrid items={visibleItems} onAction={handleAction} isSharedView={true} /> 
           ) : (
-            <FilesList items={visibleItems} onAction={handleAction} />
+            <FilesList items={visibleItems} onAction={handleAction} isSharedView={true} />
           )}
         </div>
       )}

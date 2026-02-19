@@ -163,6 +163,10 @@ export async function moveToTrash(id) {
   return apiClient.patch(`/api/files/${id}/trash`, { trashed: true });
 }
 
+export async function removeSharedAccess(fileId) {
+  return apiClient.delete(`/api/files/${fileId}/shared`);
+}
+
 export async function listStarred() {
   const data = await apiClient.get("/api/files?starred=true");
   const items = Array.isArray(data) ? data : (data.files ?? data.items ?? []);
