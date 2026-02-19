@@ -6,11 +6,17 @@ export function getToken() {
 }
 
 async function request(method, url, body) { 
-  //const fullUrl = url.startsWith("http") ? url : url;
-  //console.log("API request:", method, fullUrl);
+  const headers = { "Content-Type": "application/json" };
+
+  const token = getToken();
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
     credentials: "include",
   });

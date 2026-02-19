@@ -14,19 +14,23 @@ function normalizeType(raw) {
 
 function normalizeItem(raw) {
   return {
+    ...raw, 
     id: raw.id ?? raw._id ?? raw.fileId,
     name: raw.name ?? raw.filename ?? raw.title,
     type: normalizeType(raw.type ?? raw.kind ?? (raw.isFolder ? "folder" : "file")),
-    parentId:raw.parentId ?? raw.parent ?? raw.parent_id ?? raw.parentFolderId ?? null,
+    parentId: raw.parentId ?? raw.parent ?? raw.parent_id ?? raw.parentFolderId ?? null,
     size: raw.size ?? raw.bytes ?? null,
     createdAt: raw.createdAt ?? raw.created ?? null,
     starred: Boolean(raw.starred ?? raw.isStarred ?? false),
     trashed: Boolean(raw.trashed ?? raw.isTrashed ?? false),
+    shared: Boolean(raw.shared ?? false)
   };
 }
 
-export async function listFiles() {
-  const data = await apiClient.get(ENDPOINTS.list);
+export async function listFiles(query = "") {
+  const url = query ? `${ENDPOINTS.list}${query}` : ENDPOINTS.list;
+  
+  const data = await apiClient.get(url);
   const items = Array.isArray(data) ? data : (data.files ?? data.items ?? []);
   return items.map(normalizeItem);
 }
@@ -178,9 +182,5 @@ export async function renameFile(id, newName) {
 }
 
 export async function shareFile(fileId, targetEmail) {
-  return apiClient.post(`/api/files/${fileId}/share`, { email: targetEmail });
-}
-
-export async function toggleShare(id, currentStatus) {
-  return apiClient.patch(`/api/files/${id}`, { shared: !currentStatus });
+  return apiClient.post(`/api/files/${fileId}/permissions`, { email: targetEmail });
 }

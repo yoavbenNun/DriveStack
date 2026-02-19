@@ -17,7 +17,7 @@ export default function SharedWithMe({ onReady }) {
     setLoading(true);
     setError("");
     try {
-      const data = await listFiles();
+      const data = await listFiles("?shared=true");
       setItems(data);
     } catch (e) {
       setError(e.message || "Failed to load shared files");
@@ -34,7 +34,7 @@ export default function SharedWithMe({ onReady }) {
   // only show files that are shared with the user and not trashed
   const visibleItems = useMemo(() => {
     if (loading || error) return [];
-    return items.filter((it) => it.shared === true && it.trashed !== true);
+    return items.filter((it) => it.trashed !== true);
   }, [items, loading, error]);
 
   const isEmpty = !loading && !error && visibleItems.length === 0;

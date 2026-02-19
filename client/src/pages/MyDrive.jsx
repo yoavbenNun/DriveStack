@@ -6,6 +6,7 @@ import FileViewerModel from "../components/FileViewerModel";
 import { ChevronRight, ArrowLeft } from "lucide-react"; 
 import { listFiles ,moveToTrash, renameFile} from "../services/filesService";
 import { toggleStar } from "../services/StarredService";
+import { shareFile } from "../services/filesService";
 
 export default function MyDrive({ onReady, onFolderChange }) {
   const [viewMode, setViewMode] = useState("grid");

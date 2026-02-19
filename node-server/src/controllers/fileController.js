@@ -7,6 +7,9 @@ const { v4: uuidv4 } = require('uuid');
 const CPP_PORT = process.env.CPP_PORT || 8080; 
 const CPP_HOST = process.env.CPP_HOST || 'localhost';
 
+const jwt = require('jsonwebtoken');
+const  SECRET_KEY = 'my_secret_key_123'; // In production, use a secure environment variable
+
 function normalizeType(type) {
   const t = String(type ?? "").toLowerCase();
   if (["folder", "dir", "directory"].includes(t)) return "folder";
@@ -20,8 +23,40 @@ function cleanBase64(s) {
 // GET /api/files
 exports.getAllFiles = (req, res) => {
   try {
-    let allFiles = FileModel.getAll();
-    const { starred, trashed } = req.query;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: "Access denied. No token provided." });
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, SECRET_KEY);
+    } catch (err) {
+        return res.status(400).json({ error: "Invalid token." });
+    }
+
+    const userId = decoded.id; 
+    const { starred, trashed, shared } = req.query;
+    
+    // הדפסה חדשה שתראה לנו אם ה-React באמת ביקש קבצים משותפים!
+    console.log(`==> Request from User (${decoded.username}): Query Params:`, req.query); 
+
+    let allFiles;
+
+    if (String(shared) === "true") {
+      allFiles = FileModel.getSharedWithUser(userId);
+      console.log(`==> Found ${allFiles.length} shared files for this user!`);
+      
+      // התיקון הקריטי לפרונטאנד: אנחנו מוסיפים בכוח את השדה shared=true
+      // ככה ה-React בשום מצב לא יסנן את הקובץ החוצה!
+      allFiles = allFiles.map(file => ({ ...file, shared: true }));
+      
+    } else {
+      allFiles = FileModel.getAll().filter(f => f.ownerId === userId);
+      console.log(`==> Found ${allFiles.length} owned files for this user.`);
+    }
 
     if (starred !== undefined) {
       const s = String(starred) === "true";
@@ -89,6 +124,21 @@ exports.updateFileById = async (req, res) => {
 
 // POST /api/files
 exports.createFileOrDir = async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+  let userId;
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    userId = decoded.id; 
+  } catch (err) {
+    return res.status(400).json({ error: "Invalid token." });
+  }
+
+
   const { name, type, parentId, content, encoding, mime, size } = req.body || {};
 
   if (!name || typeof name !== "string" || name.trim() === "") {
@@ -114,6 +164,7 @@ exports.createFileOrDir = async (req, res) => {
     name: name.trim(),
     type: t,
     parentId: parentId || null,
+    ownerId: userId,
     createdAt: now,
     updatedAt: now,
     permissions: [],

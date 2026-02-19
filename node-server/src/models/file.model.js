@@ -8,16 +8,18 @@ class FileModel {
     // The constructor accepts a data object for flexibility
     constructor(data) {
         this.id = data.id || uuidv4();
+        this.ownerId = data.ownerId; // User ID of the owner
         this.name = data.name;
         this.type = data.type; // 'file' or 'dir'
         this.parentId = data.parentId || null;
+
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = data.updatedAt || new Date().toISOString();
+
+        this.shared = Boolean(data.shared ?? false);
         this.starred = Boolean(data.starred ?? false);
         this.trashed = Boolean(data.trashed ?? false);
         this.deletedAt = data.deletedAt ?? null; // ISO string when moved to trash
-        this.starred = false;
-        this.shared = false;
 
         // Permissions array - integral part of the model
         this.permissions = data.permissions || []; 
@@ -97,6 +99,15 @@ class FileModel {
         this.deletedAt = flag ? new Date().toISOString() : null;
         filesDb.set(this.id, this);
         return this;
+    }
+
+    
+    static getSharedWithUser(userId) {
+        const allFiles = this.getAll();
+        return allFiles.filter(file => 
+            file.ownerId !== userId && 
+            file.permissions.some(p => p.holderId === userId)
+        );
     }
 }
 

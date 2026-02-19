@@ -1,4 +1,5 @@
 const FileModel = require('../models/file.model');
+const UserModel = require('../models/user.model');
 
 // GET /api/files/:id/permissions
 exports.getPermissions = (req, res) => {
@@ -15,18 +16,27 @@ exports.getPermissions = (req, res) => {
 // POST /api/files/:id/permissions
 exports.addPermission = (req, res) => {
     const fileId = req.params.id;
-    const { type, holderId } = req.body; 
+    const { email, type = 'reader' } = req.body; 
 
     const file = FileModel.findById(fileId);
     if (!file) {
         return res.status(404).json({ error: 'File not found' });
     }
 
-    if (!type || !holderId) {
-        return res.status(400).json({ error: 'Missing type or holderId' });
+    if (!email) {
+        return res.status(400).json({ error: 'Missing email address' });
     }
 
+    const targetUser = UserModel.findByEmail(email);
+
+    // if user with the provided email doesn't exist, return an error
+    if (!targetUser) {
+        return res.status(404).json({ error: 'User with this email does not exist' });
+    }
+
+    const holderId = targetUser.id;
     const newPermission = file.addPermission(type, holderId);
+    
     res.status(201).json(newPermission); // 201 Created
 };
 
