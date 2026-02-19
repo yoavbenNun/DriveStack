@@ -14,19 +14,23 @@ function normalizeType(raw) {
 
 function normalizeItem(raw) {
   return {
+    ...raw, 
     id: raw.id ?? raw._id ?? raw.fileId,
     name: raw.name ?? raw.filename ?? raw.title,
     type: normalizeType(raw.type ?? raw.kind ?? (raw.isFolder ? "folder" : "file")),
-    parentId:raw.parentId ?? raw.parent ?? raw.parent_id ?? raw.parentFolderId ?? null,
+    parentId: raw.parentId ?? raw.parent ?? raw.parent_id ?? raw.parentFolderId ?? null,
     size: raw.size ?? raw.bytes ?? null,
     createdAt: raw.createdAt ?? raw.created ?? null,
     starred: Boolean(raw.starred ?? raw.isStarred ?? false),
     trashed: Boolean(raw.trashed ?? raw.isTrashed ?? false),
+    shared: Boolean(raw.shared ?? false)
   };
 }
 
-export async function listFiles() {
-  const data = await apiClient.get(ENDPOINTS.list);
+export async function listFiles(query = "") {
+  const url = query ? `${ENDPOINTS.list}${query}` : ENDPOINTS.list;
+  
+  const data = await apiClient.get(url);
   const items = Array.isArray(data) ? data : (data.files ?? data.items ?? []);
   return items.map(normalizeItem);
 }
@@ -159,6 +163,10 @@ export async function moveToTrash(id) {
   return apiClient.patch(`/api/files/${id}/trash`, { trashed: true });
 }
 
+export async function removeSharedAccess(fileId) {
+  return apiClient.delete(`/api/files/${fileId}/shared`);
+}
+
 export async function listStarred() {
   const data = await apiClient.get("/api/files?starred=true");
   const items = Array.isArray(data) ? data : (data.files ?? data.items ?? []);
@@ -167,4 +175,16 @@ export async function listStarred() {
 
 export async function hardDeleteFile(id) {
   return apiClient.delete(`/api/files/${id}`);
+}
+
+export async function restoreFile(id) {
+  return apiClient.patch(`/api/files/${id}/trash`, { trashed: false });
+}
+
+export async function renameFile(id, newName) {
+  return apiClient.patch(`/api/files/${id}`, { name: newName });
+}
+
+export async function shareFile(fileId, targetEmail) {
+  return apiClient.post(`/api/files/${fileId}/permissions`, { email: targetEmail });
 }

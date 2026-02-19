@@ -5,6 +5,8 @@ import TopBar from "../components/TopBar";
 import MyDrive from "./MyDrive";
 import StarredPage from "./StarredPage";
 import TrashPage from "./Trash";
+import RecentPage from "./Recent";
+import SharedWithMePage from "./SharedWithMe";
 
 const DashboardPage = () => {
   const [driveApi, setDriveApi] = useState(null);
@@ -56,8 +58,8 @@ const DashboardPage = () => {
             />
             <Route path="starred" element={<StarredPage />} />
             <Route path="trash" element={<TrashPage />} />
-            <Route path="recent" element={<div>Recent</div>} />
-            <Route path="shared-with-me" element={<div>Shared</div>} />
+            <Route path="recent" element={<RecentPage />} />
+            <Route path="shared-with-me" element={<SharedWithMePage />} />
           </Routes>
         </main>
       </div>

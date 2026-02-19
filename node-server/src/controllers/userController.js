@@ -4,23 +4,28 @@ const UserModel = require('../models/user.model');
 const SECRET_KEY = 'my_secret_key_123';
 
 exports.register = (req, res) => {
-    const { username, password, name } = req.body;
+    const { username, password, name, email, image } = req.body;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
+    if (!username || !password || !email) {
+        return res.status(400).json({ error: "Username, password, and email are required" });
     }
 
     try {
         // check if user is exist
         if (UserModel.exists(username)) {
-            return res.status(404).json({ error: "User already exists" }); 
+            return res.status(409).json({ error: "User already exists" }); 
+        }
+
+        //check if email is in use
+        if (UserModel.findByEmail(email)) {
+            return res.status(409).json({ error: "Email already in use" });
         }
 
         // create new user
-        const newUser = new UserModel(username, password, name);
+        const newUser = new UserModel(username, password, name, email, image);
         newUser.save();
 
-        console.log(`New user registered: ${username} (ID: ${newUser.id})`);
+        console.log(`New user registered: ${username} (ID: ${newUser.id}) Email: ${email}`);
 
         res.status(201).json({ id: newUser.id, username: newUser.username });
 

@@ -7,6 +7,9 @@ const { v4: uuidv4 } = require('uuid');
 const CPP_PORT = process.env.CPP_PORT || 8080; 
 const CPP_HOST = process.env.CPP_HOST || 'localhost';
 
+const jwt = require('jsonwebtoken');
+const  SECRET_KEY = 'my_secret_key_123'; // In production, use a secure environment variable
+
 function normalizeType(type) {
   const t = String(type ?? "").toLowerCase();
   if (["folder", "dir", "directory"].includes(t)) return "folder";
@@ -20,8 +23,33 @@ function cleanBase64(s) {
 // GET /api/files
 exports.getAllFiles = (req, res) => {
   try {
-    let allFiles = FileModel.getAll();
-    const { starred, trashed } = req.query;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: "Access denied. No token provided." });
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, SECRET_KEY);
+    } catch (err) {
+        return res.status(400).json({ error: "Invalid token." });
+    }
+
+    const userId = decoded.id; 
+    const { starred, trashed, shared } = req.query;
+    
+    let allFiles;
+
+    if (String(shared) === "true") {
+      allFiles = FileModel.getSharedWithUser(userId);
+      
+      allFiles = allFiles.map(file => ({ ...file, shared: true }));
+      
+    } else {
+      allFiles = FileModel.getAll().filter(f => f.ownerId === userId);
+    }
 
     if (starred !== undefined) {
       const s = String(starred) === "true";
@@ -89,6 +117,21 @@ exports.updateFileById = async (req, res) => {
 
 // POST /api/files
 exports.createFileOrDir = async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+  let userId;
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    userId = decoded.id; 
+  } catch (err) {
+    return res.status(400).json({ error: "Invalid token." });
+  }
+
+
   const { name, type, parentId, content, encoding, mime, size } = req.body || {};
 
   if (!name || typeof name !== "string" || name.trim() === "") {
@@ -114,6 +157,7 @@ exports.createFileOrDir = async (req, res) => {
     name: name.trim(),
     type: t,
     parentId: parentId || null,
+    ownerId: userId,
     createdAt: now,
     updatedAt: now,
     permissions: [],
@@ -315,4 +359,39 @@ exports.replacePermissions = (req, res) => {
   meta.updatedAt = new Date().toISOString();
 
   return res.status(200).json(meta);
+};
+
+// DELETE /api/files/:id/shared (for unsharing)
+exports.removeSharedFile = (req, res) => {
+    try {
+        const fileId = req.params.id;
+
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        if (!token) return res.status(401).json({ error: "No token provided" });
+
+        const decoded = jwt.verify(token, SECRET_KEY);
+        const userId = decoded.id;
+
+        const file = FileModel.findById(fileId);
+        if (!file) {
+            console.log(`[RemoveShared] File ${fileId} not found`);
+            return res.status(404).json({ error: "File not found" });
+        }
+
+        if (Array.isArray(file.permissions)) {
+            const initialCount = file.permissions.length;
+            file.permissions = file.permissions.filter(p => {
+                return p.holderId !== userId && p.userId !== userId;
+            });
+            console.log(`[RemoveShared] User ${userId} removed. Permissions: ${initialCount} -> ${file.permissions.length}`);
+        } else {
+            console.log(`[RemoveShared] No permissions array found for file ${fileId}`);
+        }
+
+        return res.status(200).json({ message: "Access removed" });
+    } catch (err) {
+        console.error("[RemoveShared] Critical Error:", err.message);
+        return res.status(500).json({ error: "Internal server error" });
+    }
 };

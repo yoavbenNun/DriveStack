@@ -1,8 +1,8 @@
 import React from 'react';
-import { Folder, FileText, FileImage, FileCode, File } from "lucide-react";
+import { Folder, FileText, FileImage, FileCode } from "lucide-react";
 import FileActionMenu from './FileActionMenu';
 
-export default function FileGrid({ items, onAction }) {
+export default function FileGrid({ items, onAction, isTrash, isSharedView }) {
 
   // chooses icon based on file type
   const getFileIcon = (it) => {
@@ -54,7 +54,7 @@ export default function FileGrid({ items, onAction }) {
             style={{ position: 'absolute', top: 10, right: 10 }} 
             onClick={(e) => e.stopPropagation()} 
           >
-            <FileActionMenu file={it} onAction={onAction} />
+            <FileActionMenu file={it} onAction={onAction} isTrash={isTrash} isShared={isSharedView} />
           </div>
 
           {/* Big center Icon */}
@@ -71,7 +71,7 @@ export default function FileGrid({ items, onAction }) {
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             fontSize: '18px',
-            color: '#e0e0e0'
+            color: 'var(--text-color)'
           }}>
             {it.name}
           </div>

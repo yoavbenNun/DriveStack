@@ -19,6 +19,7 @@ router.patch('/files/:id', fileController.updateFileById);
 
 router.delete('/files/:id', fileController.deleteFileById);
 router.delete('/files/:id/permissions/:pId', permissionsController.deletePermission);
+router.delete('/files/:id/shared', fileController.removeSharedFile);
 
 router.patch("/files/:id/star", fileController.setStarred);
 router.patch("/files/:id/trash", fileController.setTrashed);

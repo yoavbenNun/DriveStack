@@ -4,8 +4,9 @@ import FilesGrid from "../components/files/FilesGrid";
 import FilesList from "../components/files/FilesList";
 import FileViewerModel from "../components/FileViewerModel";
 import { ChevronRight, ArrowLeft } from "lucide-react"; 
-import { listFiles ,moveToTrash} from "../services/filesService";
+import { listFiles ,moveToTrash, renameFile} from "../services/filesService";
 import { toggleStar } from "../services/StarredService";
+import { shareFile } from "../services/filesService";
 
 export default function MyDrive({ onReady, onFolderChange }) {
   const [viewMode, setViewMode] = useState("grid");
@@ -45,7 +46,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
   const visibleItems = useMemo(() => {
     if (loading || error) return [];
     const cur = currentFolderId ?? null;
-    return items.filter((it) => (it.parentId ?? null) === cur);
+    return items.filter((it) => (it.parentId ?? null) === cur && !it.trashed);
   }, [items, currentFolderId, loading, error]);
 
   const isEmpty = !loading && !error && visibleItems.length === 0;
@@ -60,6 +61,18 @@ export default function MyDrive({ onReady, onFolderChange }) {
       }
     }
 
+    else if (action === "rename") {
+      const newName = window.prompt("Enter new name:", file.name);
+      if (newName && newName !== file.name) {
+        try {
+          await renameFile(file.id, newName);
+          await refresh(); 
+        }   catch (e) {
+        alert("Failed to rename file");
+      }
+    }
+  }
+
     else if (action === "star") {
       try {
         await toggleStar(file.id, file.starred);
@@ -69,10 +82,22 @@ export default function MyDrive({ onReady, onFolderChange }) {
       }
     }
 
+    else if (action === "share") {
+      const targetEmail = window.prompt("Enter email to share with:");
+      if (targetEmail) {
+        try {
+          await shareFile(file.id, targetEmail);
+          alert("File shared successfully");
+        } catch (e) {
+          alert(e.message || "Failed to share file");
+        }
+      }
+    }
+
     else if (action === "delete") {
       if (window.confirm(`Move ${file.name} to trash?`)) {
         try {
-          await moveToTrash(File.id);  // PATCH /trash
+          await moveToTrash(file.id);  // PATCH /trash
           await refresh();
         } catch (e) {
           alert(e.message || "Failed to move to trash");

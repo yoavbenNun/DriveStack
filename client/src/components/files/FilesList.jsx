@@ -1,7 +1,7 @@
 import { Folder, FileText } from "lucide-react"; 
 import FileActionMenu from './FileActionMenu';
 
-export default function FilesList({ items, onAction }) {
+export default function FilesList({ items, onAction, isTrash, isSharedView }) {
   return (
     <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, overflow: "visible" }}>
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 0.6fr", padding: 10, opacity: 0.75 }}>
@@ -36,7 +36,7 @@ export default function FilesList({ items, onAction }) {
             <div>{it.size ?? "-"}</div>
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <FileActionMenu file={it} onAction={onAction} />
+              <FileActionMenu file={it} onAction={onAction} isTrash={isTrash} isShared={isSharedView} />
             </div>
           </div>
         );
