@@ -188,3 +188,11 @@ export async function renameFile(id, newName) {
 export async function shareFile(fileId, targetEmail) {
   return apiClient.post(`/api/files/${fileId}/permissions`, { email: targetEmail });
 }
+
+export async function downloadFileContent(fileId) {
+  return apiClient.get(`/api/files/${fileId}/download?t=${Date.now()}`, { responseType: 'text' });
+}
+
+export async function updateFileContent(fileId, base64Content) {
+  return apiClient.patch(`/api/files/${fileId}`, { content: base64Content });
+}

@@ -16,7 +16,7 @@
 
 static bool readLine(SocketT s, std::string& outLine) {
     outLine.clear();
-    constexpr size_t MAX_LINE = 8192;
+    constexpr size_t MAX_LINE = 52428800; // 50 MB limit for a single line to prevent abuse
 
     char ch;
     while (outLine.size() < MAX_LINE) {
