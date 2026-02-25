@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, {useEffect, useState } from "react";
+import { Routes, Route } from "react-router-dom";
 import Sidebar from "../components/SideBar";
 import TopBar from "../components/TopBar";
 import MyDrive from "./MyDrive";
@@ -7,10 +7,44 @@ import StarredPage from "./StarredPage";
 import TrashPage from "./Trash";
 import RecentPage from "./Recent";
 import SharedWithMePage from "./SharedWithMe";
+import { searchFiles } from "../services/filesService";
 
 const DashboardPage = () => {
   const [driveApi, setDriveApi] = useState(null);
   const [currentFolderId, setCurrentFolderId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+useEffect(() => {
+  const q = searchQuery.trim();
+
+  if (!q) {
+    setSearchResults([]);
+    setIsSearching(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  const t = setTimeout(async () => {
+    try {
+      setIsSearching(true);
+      const results = await searchFiles(q);
+      if (!cancelled) setSearchResults(results);
+    } catch (e) {
+      console.error("search failed:", e);
+      if (!cancelled) setSearchResults([]);
+    } finally {
+      if (!cancelled) setIsSearching(false);
+    }
+  }, 300);
+
+  return () => {
+    cancelled = true;
+    clearTimeout(t);
+  };
+}, [searchQuery]);
 
   return (
     <div style={{
@@ -22,38 +56,34 @@ const DashboardPage = () => {
       margin: 0,
       padding: 0
     }}>
-      {/* 1. Side Navigation */}
       <Sidebar
         onDriveRefresh={() => driveApi?.refresh()}
         currentFolderId={currentFolderId}
       />
 
-      {/* 2. Main Work Area (TopBar + Content) */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0
-      }}>
-        {/* 3. Top Navigation */}
-        <TopBar />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* transfer to TopBar */}
+        <TopBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-        {/* 4. Scrollable Content Area */}
-        <main  style={{
-            flex: 1,
-            padding: "40px",
-            overflowY: "auto",
-            color: "var(--text-color)",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+        <main style={{
+          flex: 1,
+          padding: "40px",
+          overflowY: "auto",
+          color: "var(--text-color)",
+          display: "flex",
+          flexDirection: "column",
+        }}>
           <Routes>
-            {/* /dashboard */}
             <Route
               index
               element={
-                <MyDrive onReady={setDriveApi} onFolderChange={setCurrentFolderId} />
+                <MyDrive
+                  onReady={setDriveApi}
+                  onFolderChange={setCurrentFolderId}
+                  searchQuery={searchQuery}
+                  searchResults={searchResults}
+                  isSearching={isSearching}
+                />
               }
             />
             <Route path="starred" element={<StarredPage />} />

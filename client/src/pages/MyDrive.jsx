@@ -8,8 +8,8 @@ import { listFiles ,moveToTrash, renameFile} from "../services/filesService";
 import { toggleStar } from "../services/StarredService";
 import { shareFile } from "../services/filesService";
 
-export default function MyDrive({ onReady, onFolderChange }) {
-  const [viewMode, setViewMode] = useState("grid");
+export default function MyDrive({onReady, onFolderChange, searchQuery, searchResults, isSearching,}) {
+    const [viewMode, setViewMode] = useState("grid");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,11 +43,16 @@ export default function MyDrive({ onReady, onFolderChange }) {
   }, [currentFolderId, onFolderChange]);
 
   // Perform filtering based on current folder
+  const isSearchMode = Boolean(searchQuery?.trim());
   const visibleItems = useMemo(() => {
-    if (loading || error) return [];
-    const cur = currentFolderId ?? null;
-    return items.filter((it) => (it.parentId ?? null) === cur && !it.trashed);
-  }, [items, currentFolderId, loading, error]);
+  if (loading || error) return [];
+  if (isSearchMode) {
+    return (searchResults || []).filter((it) => !it.trashed);
+  }
+  const cur = currentFolderId ?? null;
+  
+  return items.filter((it) => (it.parentId ?? null) === cur && !it.trashed);
+  }, [items, currentFolderId, loading, error, isSearchMode, searchResults]);
 
   const isEmpty = !loading && !error && visibleItems.length === 0;
 
@@ -160,7 +165,7 @@ export default function MyDrive({ onReady, onFolderChange }) {
         onToggle={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
         onRefresh={refresh}
       />
-
+      {isSearchMode && isSearching && (<div style={{ marginTop: 20, opacity: 0.8 }}>Searching...</div>)}
       {loading && <div style={{ marginTop: 20 }}>Loading...</div>}
       {error && <div style={{ marginTop: 20, color: "tomato" }}>{error}</div>}
       

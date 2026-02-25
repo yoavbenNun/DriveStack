@@ -25,4 +25,5 @@ router.patch("/files/:id/star", fileController.setStarred);
 router.patch("/files/:id/trash", fileController.setTrashed);
 router.patch("/files/:id/permissions", fileController.replacePermissions);
 
+router.get('/search/:query', fileController.searchFiles);
 module.exports = router;
