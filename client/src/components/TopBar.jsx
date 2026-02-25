@@ -84,7 +84,7 @@ const TopBar = ({ searchQuery, onSearchChange }) => {
       }
 
       const data = await response.json();
-      updateUser?.({ image: data.image }); // מצפה שהשרת יחזיר "" / null / placeholder
+      updateUser?.({ image: data.image }); // "" / null / placeholder
       setIsPopoverOpen(false);
     } catch (error) {
       console.error('Error deleting image:', error);
@@ -154,7 +154,7 @@ const TopBar = ({ searchQuery, onSearchChange }) => {
           {theme === 'dark' ? <Sun size={26} /> : <Moon size={26} />}
         </button>
 
-        {/* Settings icon (כרגע רק תצוגה) */}
+        {/* Settings icon  */}
         <Settings size={40} />
 
         {/* Avatar + Popover */}
