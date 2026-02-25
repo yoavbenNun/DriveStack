@@ -1,3 +1,5 @@
+import React from 'react';
+import { Search, Moon, Sun, Settings } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Moon, Sun, LogOut, Camera, Trash2  } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
@@ -6,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
-const TopBar = () => {
+const TopBar = ({ searchQuery, onSearchChange }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -91,12 +93,73 @@ const handleDeletePicture = async () => {
 
 
   return (
-    <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 60px', borderBottom: '3px solid var(--border-color)' }}>
-      <div style={{ flex: '0 1 1000px', display: 'flex', alignItems: 'center', backgroundColor: 'var(--search-bg)', padding: '20px 40px', borderRadius: '20px', gap: '25px' }}>
+    <div
+      style={{
+        height: '120px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 60px',
+        borderBottom: '3px solid var(--border-color)',
+      }}
+    >
+      <div
+        style={{
+          flex: '0 1 1000px',
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: 'var(--search-bg)',
+          padding: '20px 40px',
+          borderRadius: '20px',
+          gap: '25px',
+        }}
+      >
         <Search size={30} opacity={0.8} />
-        <input type="text" placeholder="Search Drive..." style={{ background: 'transparent', border: 'none', color: 'inherit', width: '100%', outline: 'none', fontSize: '1.6rem' }} />
+        <input
+          type="text"
+          placeholder="Search Drive..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'inherit',
+            width: '100%',
+            outline: 'none',
+            fontSize: '1.6rem',
+          }}
+        />
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: '50px' }}>
+        <button
+          onClick={toggleTheme}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'inherit',
+          }}
+        >
+          {theme === 'dark' ? <Sun size={30} /> : <Moon size={30} />}
+        </button>
+
+        <Settings size={70} />
+        <div
+          style={{
+            width: '100px',
+            height: '55px',
+            borderRadius: '50%',
+            backgroundColor: '#4facfe',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            color: 'white',
+          }}
+        >
+          U
       <div style={{ display: 'flex', alignItems: 'center', gap: '45px' }}>
         <button 
           onClick={toggleTheme} 

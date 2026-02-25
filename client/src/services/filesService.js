@@ -23,7 +23,8 @@ function normalizeItem(raw) {
     createdAt: raw.createdAt ?? raw.created ?? null,
     starred: Boolean(raw.starred ?? raw.isStarred ?? false),
     trashed: Boolean(raw.trashed ?? raw.isTrashed ?? false),
-    shared: Boolean(raw.shared ?? false)
+    shared: Boolean(raw.shared ?? false),
+    match: raw.match ?? null,
   };
 }
 
@@ -189,6 +190,13 @@ export async function shareFile(fileId, targetEmail) {
   return apiClient.post(`/api/files/${fileId}/permissions`, { email: targetEmail });
 }
 
+export async function searchFiles(query) {
+  const q = String(query ?? "").trim();
+  if (!q) return [];
+  const data = await apiClient.get(`/api/search/${encodeURIComponent(q)}`);
+  const items = Array.isArray(data) ? data : (data.files ?? data.items ?? data.results ?? []);
+  return items.map(normalizeItem);
+}
 export async function downloadFileContent(fileId) {
   return apiClient.get(`/api/files/${fileId}/download?t=${Date.now()}`, { responseType: 'text' });
 }

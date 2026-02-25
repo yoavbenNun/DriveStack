@@ -274,52 +274,168 @@ exports.deleteFileById = async (req, res) => {
   return res.status(204).end();
 };
 
-// GET /api/search/:query
-exports.searchFiles = async (req, res) => {
-  const query = req.params.query;
+function buildSnippets(text, q, maxHits = 3, radius = 40) {
+  const t = String(text || "");
+  const qq = String(q || "").toLowerCase();
+  const tt = t.toLowerCase();
 
-  if (!query) {
-    return res.status(400).json({ error: "Query is required" });
+  const hits = [];
+  let idx = 0;
+
+  while (hits.length < maxHits) {
+    const pos = tt.indexOf(qq, idx);
+    if (pos === -1) break;
+
+    const start = Math.max(0, pos - radius);
+    const end = Math.min(t.length, pos + q.length + radius);
+
+    hits.push({
+      snippet: (start > 0 ? "…" : "") + t.slice(start, end) + (end < t.length ? "…" : ""),
+      index: pos,
+    });
+
+    idx = pos + q.length;
   }
 
-  // (Metadata - Node.js Memory)
-  const allFiles = FileModel.getAll(); 
-  const nameMatches = allFiles.filter(file => file.name && file.name.includes(query));
+  return hits;
+}
 
-  // (Storage - C++ Server)
-  let contentMatches = [];
+function tryDecodeBase64ToUtf8(base64) {
+  try {
+    const buf = Buffer.from(String(base64 || ""), "base64");
+    return buf.toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function getUserIdFromAuth(req) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return { error: "Access denied. No token provided." };
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    return { userId: decoded.id };
+  } catch {
+    return { error: "Invalid token." };
+  }
+}
+
+// GET /api/search/:query
+exports.searchFiles = async (req, res) => {
+  const q = String(req.params.query || "").trim();
+  if (!q) return res.status(400).json({ error: "Query is required" });
+
+  // ✅ auth כמו getAllFiles
+  const auth = getUserIdFromAuth(req);
+  if (auth.error) return res.status(401).json({ error: auth.error });
+  const userId = auth.userId;
+
+  const parentIdFilter = req.query.parentId; 
+  const includeTrashed = String(req.query.trashed) === "true"; 
+
+  const allFiles = FileModel.getAll().filter(f => f.ownerId === userId);
+
+  const qLower = q.toLowerCase();
+
+  // --- 1) Name matches (case-insensitive) ---
+  const nameMatches = allFiles.filter(f =>
+    String(f.name || "").toLowerCase().includes(qLower)
+  );
+
+  // --- 2) Content matches via C++ SEARCH ---
+  let contentMatchMetas = [];
   const client = new TcpClient(CPP_PORT, CPP_HOST);
 
   try {
-    const response = await client.send(`SEARCH ${query}`);
-    
+    const response = await client.send(`SEARCH ${q}`);
+
     // C++ returns: "200 Ok\n\n<ID1>\n<ID2>"
-    if (!response.startsWith('404') && response.includes('\n\n')) {
-        const parts = response.split('\n\n');
-        if (parts.length > 1) {
-            const ids = parts[1].split('\n').filter(line => line.trim() !== '');
-            contentMatches = ids.map(id => FileModel.findById(id)).filter(f => f);
-        }
+    if (!String(response).startsWith("404") && String(response).includes("\n\n")) {
+      const parts = String(response).split("\n\n");
+      const ids = (parts[1] || "")
+        .split("\n")
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      contentMatchMetas = ids
+        .map(id => FileModel.findById(id))
+        .filter(Boolean)
+        .filter(f => f.ownerId === userId); // dont share other's files
     }
   } catch (error) {
     console.log("Content search warning:", error.message);
   }
 
-  const combinedResults = [...nameMatches];
-  
-  contentMatches.forEach(file => {
-      if (!combinedResults.find(existing => existing.id === file.id)) {
-          combinedResults.push(file);
+  // --- 3) Merge uniques by id ---
+  const byId = new Map();
+
+  // Name matches get match info immediately
+  for (const f of nameMatches) {
+    byId.set(f.id, {
+      ...f,
+      match: { name: true, content: [] },
+    });
+  }
+
+  const MAX_CONTENT_SNIPPETS_FILES = 10; 
+  const contentCandidates = contentMatchMetas.slice(0, MAX_CONTENT_SNIPPETS_FILES);
+
+  for (const meta of contentCandidates) {
+    const existing = byId.get(meta.id);
+
+    const mime = String(meta.mime || "");
+    const isProbablyText =
+      mime.startsWith("text/") || mime.includes("json") || mime.includes("xml") || mime.includes("csv");
+
+    let contentHits = [];
+
+    if (isProbablyText) {
+      try {
+        const resp = await client.send(`GET ${meta.id}`);
+        if (!String(resp).startsWith("404")) {
+          const base64 = extractBodyFromCppResponse(resp);
+          const text = tryDecodeBase64ToUtf8(base64);
+          contentHits = buildSnippets(text, q);
+        }
+      } catch {
       }
-  });
-  
-  const parentId = req.query.parentId ?? null;
+    }
 
-  const filteredResults = combinedResults.filter(f =>
-    (f.parentId ?? null) === parentId
-  );
+    const merged = {
+      ...(existing || meta),
+      match: {
+        name: existing?.match?.name ?? false,
+        content: contentHits,
+      },
+    };
 
-  return res.status(200).json(filteredResults);
+    byId.set(meta.id, merged);
+  }
+
+  for (const meta of contentMatchMetas.slice(MAX_CONTENT_SNIPPETS_FILES)) {
+    const existing = byId.get(meta.id);
+    byId.set(meta.id, {
+      ...(existing || meta),
+      match: {
+        name: existing?.match?.name ?? false,
+        content: existing?.match?.content ?? [{ snippet: "(match in content)", index: -1 }],
+      },
+    });
+  }
+
+  // --- 4) Apply filters (trashed/parent) ---
+  let results = Array.from(byId.values());
+
+  if (!includeTrashed) results = results.filter(f => !f.trashed);
+
+  if (parentIdFilter !== undefined) {
+    const pid = parentIdFilter || null;
+    results = results.filter(f => (f.parentId ?? null) === pid);
+  }
+
+  return res.status(200).json(results);
 };
 
 // PATCH /api/files/:id/star
