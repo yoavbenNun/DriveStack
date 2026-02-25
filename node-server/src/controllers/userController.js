@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user.model');
 
 const SECRET_KEY = 'my_secret_key_123';
+const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
 exports.register = (req, res) => {
     const { username, password, name, email, image } = req.body;
@@ -27,7 +28,7 @@ exports.register = (req, res) => {
 
         console.log(`New user registered: ${username} (ID: ${newUser.id}) Email: ${email}`);
 
-        res.status(201).json({ id: newUser.id, username: newUser.username });
+        res.status(201).json({ id: newUser.id, username: newUser.username, email: newUser.email, image: newUser.image });
 
     } catch (error) {
         console.error('Register Error:', error);
@@ -80,11 +81,58 @@ exports.login = (req, res) => {
         res.json({ 
             message: "Login successful",
             id: user.id,
+            username: user.username,
+            name: user.name,
+            email: user.email,
+            image: user.image,
             token: token 
         });
 
     } catch (error) {
         console.error('Login Error:', error);
         res.status(500).json({ error: 'Login failed' });
+    }
+};
+
+exports.updateProfileImage = (req, res) => {
+    const { id } = req.params;
+    const { image } = req.body;
+
+    if (!image) {
+        return res.status(400).json({ error: "Image data is required" });
+    }
+
+    try {
+        const user = UserModel.findById(id);
+        
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        user.image = image;
+
+        res.json({ message: "Profile image updated successfully", image: user.image });
+    } catch (error) {
+        console.error('Update Image Error:', error);
+        res.status(500).json({ error: 'Failed to update profile image' });
+    }
+};
+
+exports.deleteProfileImage = (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const user = UserModel.findById(id);
+        
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        user.image = DEFAULT_AVATAR;
+
+        res.json({ message: "Profile image deleted successfully", image: user.image });
+    } catch (error) {
+        console.error('Delete Image Error:', error);
+        res.status(500).json({ error: 'Failed to delete profile image' });
     }
 };

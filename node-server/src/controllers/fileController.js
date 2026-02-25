@@ -145,7 +145,7 @@ exports.createFileOrDir = async (req, res) => {
   if (t === "file") {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
-      const encodedContent = cleanBase64(content);
+      const encodedContent = cleanBase64(content).replace(/[\r\n]+/g, "");
       await client.send(`POST ${id} ${encodedContent}`);
     } catch (e) {
       return res.status(404).json({ error: "Failed to create file on storage server" });

@@ -5,8 +5,10 @@ const RegisterPage = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
+    name: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    image: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +18,19 @@ const RegisterPage = () => {
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, image: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   //check password validity
   const validatePassword = (pwd) => {
@@ -56,7 +71,9 @@ const RegisterPage = () => {
         body: JSON.stringify({
           username: formData.username,
           password: formData.password,
-          email: formData.email
+          email: formData.email,
+          name: formData.name,
+          image: formData.image
         }),
       });
 
@@ -81,6 +98,31 @@ const RegisterPage = () => {
         <h2>Create Account</h2>
         
         <form onSubmit={handleRegister}>
+
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <label htmlFor="avatar-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{
+                width: '80px', height: '80px', borderRadius: '50%',
+                backgroundColor: 'rgba(255,255,255,0.05)', border: '2px dashed #555',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                overflow: 'hidden', 
+                backgroundImage: formData.image ? `url(${formData.image})` : 'none',
+                backgroundSize: 'cover', backgroundPosition: 'center',
+                transition: 'border 0.3s ease'
+              }}>
+                {!formData.image && <span style={{ color: '#888', fontSize: '2rem' }}>+</span>}
+              </div>
+              <span style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '10px' }}>Add Profile Picture</span>
+            </label>
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleImageChange}
+            />
+          </div>
+
           <div className="form-group">
             <label>Username</label>
             <input
@@ -90,6 +132,17 @@ const RegisterPage = () => {
               onChange={handleChange}
               required
               placeholder="Choose a username"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Display Name (Optional)</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="How should we call you?"
             />
           </div>
 

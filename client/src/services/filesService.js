@@ -197,3 +197,10 @@ export async function searchFiles(query) {
   const items = Array.isArray(data) ? data : (data.files ?? data.items ?? data.results ?? []);
   return items.map(normalizeItem);
 }
+export async function downloadFileContent(fileId) {
+  return apiClient.get(`/api/files/${fileId}/download?t=${Date.now()}`, { responseType: 'text' });
+}
+
+export async function updateFileContent(fileId, base64Content) {
+  return apiClient.patch(`/api/files/${fileId}`, { content: base64Content });
+}

@@ -10,4 +10,8 @@ router.post('/login', userController.login);
 router.post('/tokens', userController.login);
 router.get('/users/:id', userController.getUser);
 
+// delete and change profile picture
+router.patch('/users/:id/image', userController.updateProfileImage);
+router.delete('/users/:id/image', userController.deleteProfileImage);
+
 module.exports = router;

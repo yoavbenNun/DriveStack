@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Download } from 'lucide-react';
+import { downloadFileContent, updateFileContent } from '../services/filesService';
 
 const FileViewerModel = ({ file, onClose, onSave }) => {
   const [content, setContent] = useState('');
@@ -14,42 +15,40 @@ const FileViewerModel = ({ file, onClose, onSave }) => {
 
   useEffect(() => {
     if (isText) {
-      fetch(`${fileUrl}?t=${Date.now()}`)
-        .then(res => res.text())
-        .then(text => { setContent(text); setIsEditable(true); })
-        .catch(err => setContent("Error loading content (Backend might be missing download route)"));
-    }
-  }, [file, isText, fileUrl]);
+      downloadFileContent(file.id)
+        .then(res => {
+          console.log("Full response:", res);
+          console.log("Type of data:", typeof res.data);
+          setContent(res.data || res); 
+          setIsEditable(true); 
+        })
+        .catch(err => {
+          console.error(err);
+          setContent("Error loading content: " + (err.response?.data?.error || err.message));
+        });
+      }
+  }, [file.id, isText]);
+    
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const base64Content = btoa(unescape(encodeURIComponent(content)));
 
-      const response = await fetch(`http://localhost:3000/api/files/${file.id}`, {
-        method: 'PATCH', 
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: base64Content
-        })
-      });
+      await updateFileContent(file.id, base64Content);
 
-      if (!response.ok) {
-        throw new Error('Failed to save file');
-      }
-
-      alert("File saved successfully!");
-      if (onSave) onSave(); 
+      alert("File content updated successfully!");
+      if (onSave) onSave();
 
     } catch (error) {
-      console.error(error);
-      alert("Error saving file: " + error.message);
-    } finally {
+        console.error("Error updating file content:", error);
+        alert("Failed to update file content: " + (error.response?.data?.error || error.message));
+      } finally  {
       setIsSaving(false);
     }
   };
+    
+  
 
   return (
     <div style={{
