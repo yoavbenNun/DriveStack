@@ -271,7 +271,7 @@ async function handleFolderSelected(e) {
             fontSize: '1rem',
           }}
         >
-          <LogOut size={20} /> Logout {user?.username}
+          <LogOut size={20} /> Logout 
         </button>
       </div>
     </div>

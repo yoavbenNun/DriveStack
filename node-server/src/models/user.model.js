@@ -2,6 +2,8 @@ const { v4: uuidv4 } = require('uuid');
 
 const users = []; 
 
+const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
+
 class UserModel {
     constructor(username, password, name, email, image) {
         this.id = uuidv4();
@@ -9,7 +11,7 @@ class UserModel {
         this.password = password; 
         this.name = name || '';
         this.email = email || '';
-        this.image = image || null;
+        this.image = image || DEFAULT_AVATAR;
         this.created_at = new Date();
     }
 
