@@ -76,10 +76,22 @@ export default function MyDrive({
     }
 
     if (action === "rename") {
-      const newName = window.prompt("Enter new name:", file.name);
-      if (newName && newName !== file.name) {
+      let baseName = file.name;
+      let extension = '';
+
+      if (file.type === 'file' && file.name.includes('.')) {
+        const lastDotIndex = file.name.lastIndexOf('.');
+        baseName = file.name.substring(0, lastDotIndex);
+        extension = file.name.substring(lastDotIndex); 
+      }
+
+      const newBaseName = window.prompt("Enter new name:", baseName);
+
+      if (newBaseName && newBaseName !== baseName) {
         try {
-          await renameFile(file.id, newName);
+          const finalName = newBaseName + extension;
+          
+          await renameFile(file.id, finalName);
           await refresh();
         } catch {
           alert("Failed to rename file");

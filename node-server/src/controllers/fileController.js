@@ -88,19 +88,19 @@ exports.updateFileById = async (req, res) => {
     meta.parentId = parentId || null;
   }
 
-  // Update content if provided and it's a file
- if (content !== undefined && meta.type === 'file') {
+  if (typeof content === 'string' && content.trim() !== "" && meta.type === 'file') {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
       const encodedContent = cleanBase64(content);
 
-      // delete old content first
+      // Delete old content first
       try {
           await client.send(`DELETE ${id}`);
       } catch (delErr) {
           console.warn(`[UPDATE] Warning: Delete failed for ${id}, proceeding to create.`);
       }
 
+      // Create new content
       await client.send(`POST ${id} ${encodedContent}`);
       
       meta.size = encodedContent.length; 
@@ -108,10 +108,12 @@ exports.updateFileById = async (req, res) => {
 
     } catch (e) {
       console.error("Failed to update content on C++ server:", e.message);
-      meta.updatedAt = new Date().toISOString();return res.status(200).json(meta);
-      //return res.status(500).json({ error: "Failed to save file content" });
+      return res.status(500).json({ error: "Failed to save file content" });
     }
   }
+
+  meta.updatedAt = new Date().toISOString();
+  return res.status(200).json(meta);
 };
 
 
@@ -327,7 +329,6 @@ exports.searchFiles = async (req, res) => {
   const q = String(req.params.query || "").trim();
   if (!q) return res.status(400).json({ error: "Query is required" });
 
-  // ✅ auth כמו getAllFiles
   const auth = getUserIdFromAuth(req);
   if (auth.error) return res.status(401).json({ error: auth.error });
   const userId = auth.userId;
