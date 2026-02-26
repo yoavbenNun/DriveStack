@@ -10,9 +10,6 @@ import { toggleStar } from "../services/StarredService";
 export default function MyDrive({
   onReady,
   onFolderChange,
-  searchQuery,
-  searchResults,
-  isSearching,
 }) {
   const [viewMode, setViewMode] = useState("grid");
   const [items, setItems] = useState([]);
@@ -33,40 +30,6 @@ export default function MyDrive({
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    refresh();
-    onReady?.({ refresh });
-  }, []);
-
-  useEffect(() => {
-    onFolderChange?.(currentFolderId);
-  }, [currentFolderId, onFolderChange]);
-
-  const isSearchMode = Boolean(searchQuery?.trim());
-
-  const visibleItems = useMemo(() => {
-    if (isSearchMode) {
-      return (searchResults || []).filter((it) => !it.trashed);
-    }
-    if (loading || error) return [];
-    const cur = currentFolderId ?? null;
-    return items.filter((it) => (it.parentId ?? null) === cur && !it.trashed);
-  }, [isSearchMode, searchResults, items, currentFolderId, loading, error]);
-
-  const showEmpty =
-    !error &&
-    !loading &&
-    !isSearching &&
-    visibleItems.length === 0 &&
-    !isSearchMode;
-
-  const showNoResults =
-    !error &&
-    !loading && 
-    isSearchMode &&
-    !isSearching &&
-    visibleItems.length === 0;
 
   const handleAction = async (action, file) => {
     if (action === "open") {
@@ -140,6 +103,24 @@ export default function MyDrive({
     }
   };
 
+  useEffect(() => {
+    refresh();
+    onReady?.({ refresh, handleAction });
+    // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    onFolderChange?.(currentFolderId);
+  }, [currentFolderId, onFolderChange]);
+
+  const visibleItems = useMemo(() => {
+    if (loading || error) return [];
+    const cur = currentFolderId ?? null;
+    return items.filter((it) => (it.parentId ?? null) === cur && !it.trashed);
+  }, [items, currentFolderId, loading, error]);
+
+  const showEmpty = !error && !loading && visibleItems.length === 0;
+
   const goBack = () => {
     if (!currentFolderId) return;
     const currentFolder = items.find((i) => i.id === currentFolderId);
@@ -153,7 +134,7 @@ export default function MyDrive({
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "40px", overflowY: "auto" }}>
       <header style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "15px" }}>
-        {currentFolderId && !isSearchMode && (
+        {currentFolderId && (
           <button
             onClick={goBack}
             style={{
@@ -168,15 +149,13 @@ export default function MyDrive({
               cursor: "pointer",
             }}
           >
-            <ArrowLeft size={20} color="white" />
+            <ArrowLeft size={20} color="var(--text-color, white)" />
           </button>
         )}
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           <h1 style={{ fontSize: "2rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
-            {isSearchMode ? (
-              <>Search results</>
-            ) : currentFolderId ? (
+            {currentFolderId ? (
               <>
                 <span style={{ opacity: 0.5, fontSize: "1.5rem" }}>My Drive</span>
                 <ChevronRight size={24} opacity={0.5} />
@@ -195,25 +174,8 @@ export default function MyDrive({
         onRefresh={refresh}
       />
 
-      {isSearchMode && isSearching && <div style={{ marginTop: 20, opacity: 0.8 }}>Searching...</div>}
       {loading && <div style={{ marginTop: 20 }}>Loading...</div>}
       {error && <div style={{ marginTop: 20, color: "tomato" }}>{error}</div>}
-
-      {showNoResults && (
-        <div
-          style={{
-            marginTop: 40,
-            opacity: 0.75,
-            textAlign: "center",
-            fontSize: "1.1rem",
-            border: "2px dashed var(--border-color)",
-            padding: "40px",
-            borderRadius: "20px",
-          }}
-        >
-          No results for: <b>{searchQuery}</b>
-        </div>
-      )}
 
       {showEmpty && (
         <div

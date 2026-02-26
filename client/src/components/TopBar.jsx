@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Moon, Sun, Settings, LogOut, Camera, Trash2 } from 'lucide-react';
+import { Search, Moon, Sun, Settings, LogOut, Camera, Trash2, Folder, FileText } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,13 @@ import { useNavigate } from 'react-router-dom';
 const DEFAULT_AVATAR =
   'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png';
 
-const TopBar = ({ searchQuery, onSearchChange }) => {
+const TopBar = ({ 
+  searchQuery, 
+  onSearchChange, 
+  searchResults = [], 
+  isSearching = false, 
+  onResultClick         
+}) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -102,35 +108,99 @@ const TopBar = ({ searchQuery, onSearchChange }) => {
         borderBottom: '3px solid var(--border-color)',
       }}
     >
-      {/* Search */}
+      {/* Search Area - Wrapped in a relative div for the dropdown */}
       <div
         style={{
           flex: '0 1 1000px',
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: 'var(--search-bg)',
-          padding: '20px 40px',
-          borderRadius: '20px',
-          gap: '25px',
+          position: 'relative',
         }}
       >
-        <Search size={30} opacity={0.8} />
-        <input
-          type="text"
-          placeholder="Search Drive..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+        <div
           style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'inherit',
-            width: '100%',
-            outline: 'none',
-            fontSize: '1.6rem',
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--search-bg)',
+            padding: '20px 40px',
+            borderRadius: '20px',
+            gap: '25px',
           }}
-        />
+        >
+          <Search size={30} opacity={0.8} />
+          <input
+            type="text"
+            placeholder="Search Drive..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              width: '100%',
+              outline: 'none',
+              fontSize: '1.6rem',
+            }}
+          />
+        </div>
+
+        {/* Floating Search Results Dropdown */}
+        {searchQuery && searchQuery.trim().length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '10px',
+            backgroundColor: theme === 'dark' ? '#2d2d2d' : '#ffffff', 
+            border: '1px solid var(--border-color)',
+            borderRadius: '20px',
+            boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
+            zIndex: 1000,
+            maxHeight: '400px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '15px 0'
+          }}>
+            {isSearching ? (
+              <div style={{ padding: '20px 40px', fontSize: '1.4rem', opacity: 0.7 }}>
+                Searching...
+              </div>
+            ) : searchResults && searchResults.length === 0 ? (
+              <div style={{ padding: '20px 40px', fontSize: '1.4rem', opacity: 0.7 }}>
+                No results found for "{searchQuery}"
+              </div>
+            ) : (
+              searchResults.map((file) => {
+                const isFolder = file.type === "folder" || !file.name.includes('.');
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => onResultClick && onResultClick(file)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px',
+                      padding: '15px 40px',
+                      cursor: 'pointer',
+                      fontSize: '1.4rem',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    {isFolder ? <Folder size={24} color="#74b9ff" /> : <FileText size={24} opacity={0.7} />}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {file.name}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
+       {/* Right side: Theme toggle*/}     
        <div style={{ display: 'flex', alignItems: 'center', gap: '45px' }}>
         <button 
           onClick={toggleTheme} 

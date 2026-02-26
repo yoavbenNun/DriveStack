@@ -1,4 +1,4 @@
-import React, {useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import Sidebar from "../components/SideBar";
 import TopBar from "../components/TopBar";
@@ -16,35 +16,44 @@ const DashboardPage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   
-useEffect(() => {
-  const q = searchQuery.trim();
+  useEffect(() => {
+    const q = searchQuery.trim();
 
-  if (!q) {
-    setSearchResults([]);
-    setIsSearching(false);
-    return;
-  }
-
-  let cancelled = false;
-
-  const t = setTimeout(async () => {
-    try {
-      setIsSearching(true);
-      const results = await searchFiles(q);
-      if (!cancelled) setSearchResults(results);
-    } catch (e) {
-      console.error("search failed:", e);
-      if (!cancelled) setSearchResults([]);
-    } finally {
-      if (!cancelled) setIsSearching(false);
+    if (!q) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
     }
-  }, 300);
 
-  return () => {
-    cancelled = true;
-    clearTimeout(t);
+    let cancelled = false;
+
+    const t = setTimeout(async () => {
+      try {
+        setIsSearching(true);
+        const results = await searchFiles(q);
+        if (!cancelled) setSearchResults(results);
+      } catch (e) {
+        console.error("search failed:", e);
+        if (!cancelled) setSearchResults([]);
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [searchQuery]);
+
+  const handleSearchResultClick = (file) => {
+    setSearchQuery(""); 
+    if (driveApi && driveApi.handleAction) {
+      driveApi.handleAction('open', file); 
+    } else {
+      console.error("Drive API is missing or doesn't have handleAction!");
+    }
   };
-}, [searchQuery]);
 
   return (
     <div style={{
@@ -62,8 +71,13 @@ useEffect(() => {
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* transfer to TopBar */}
-        <TopBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        <TopBar 
+          searchQuery={searchQuery} 
+          onSearchChange={setSearchQuery} 
+          searchResults={searchResults}
+          isSearching={isSearching}
+          onResultClick={handleSearchResultClick}
+        />
 
         <main style={{
           flex: 1,
@@ -80,9 +94,6 @@ useEffect(() => {
                 <MyDrive
                   onReady={setDriveApi}
                   onFolderChange={setCurrentFolderId}
-                  searchQuery={searchQuery}
-                  searchResults={searchResults}
-                  isSearching={isSearching}
                 />
               }
             />

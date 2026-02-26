@@ -363,7 +363,18 @@ exports.searchFiles = async (req, res) => {
       contentMatchMetas = ids
         .map(id => FileModel.findById(id))
         .filter(Boolean)
-        .filter(f => f.ownerId === userId); // dont share other's files
+        .filter(f => f.ownerId === userId) // dont share other's files
+        .filter(f => {
+          if (f.type === "folder") return false;
+          
+          const mime = String(f.mime || "").toLowerCase();
+          const name = String(f.name || "").toLowerCase();
+          
+          const isTextMime = mime.startsWith("text/") || mime.includes("json") || mime.includes("xml") || mime.includes("csv");
+          const isTextExt = name.endsWith(".txt") || name.endsWith(".js") || name.endsWith(".html") || name.endsWith(".css") || name.endsWith(".cpp") || name.endsWith(".h") || name.endsWith(".md");
+          
+          return isTextMime || isTextExt;
+        });
     }
   } catch (error) {
     console.log("Content search warning:", error.message);
@@ -386,22 +397,17 @@ exports.searchFiles = async (req, res) => {
   for (const meta of contentCandidates) {
     const existing = byId.get(meta.id);
 
-    const mime = String(meta.mime || "");
-    const isProbablyText =
-      mime.startsWith("text/") || mime.includes("json") || mime.includes("xml") || mime.includes("csv");
-
     let contentHits = [];
 
-    if (isProbablyText) {
-      try {
-        const resp = await client.send(`GET ${meta.id}`);
-        if (!String(resp).startsWith("404")) {
-          const base64 = extractBodyFromCppResponse(resp);
-          const text = tryDecodeBase64ToUtf8(base64);
-          contentHits = buildSnippets(text, q);
-        }
-      } catch {
+    try {
+      const resp = await client.send(`GET ${meta.id}`);
+      if (!String(resp).startsWith("404")) {
+        const base64 = extractBodyFromCppResponse(resp);
+        const text = tryDecodeBase64ToUtf8(base64);
+        contentHits = buildSnippets(text, q);
       }
+    } catch {
+      // ignore
     }
 
     const merged = {
