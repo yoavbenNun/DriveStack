@@ -1,14 +1,19 @@
-import React from 'react';
-import { Search, Moon, Sun, Settings } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Moon, Sun, LogOut, Camera, Trash2  } from 'lucide-react';
+import { Search, Moon, Sun, Settings, LogOut, Camera, Trash2, Folder, FileText } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
+const DEFAULT_AVATAR =
+  'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png';
 
-const TopBar = ({ searchQuery, onSearchChange }) => {
+const TopBar = ({ 
+  searchQuery, 
+  onSearchChange, 
+  searchResults = [], 
+  isSearching = false, 
+  onResultClick         
+}) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -16,7 +21,8 @@ const TopBar = ({ searchQuery, onSearchChange }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const popoverRef = useRef(null);
 
-  const avatarSrc = (user?.image && user.image.trim() !== '') ? user.image : DEFAULT_AVATAR;
+  const avatarSrc =
+    user?.image && user.image.trim() !== '' ? user.image : DEFAULT_AVATAR;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,69 +34,68 @@ const TopBar = ({ searchQuery, onSearchChange }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
   const handleLogout = () => {
     setIsPopoverOpen(false);
-    if (logout) {
-      logout(); 
-    } else {
-      localStorage.removeItem('token');
-    }
-    navigate('/login'); 
+    if (logout) logout();
+    else localStorage.removeItem('token');
+    navigate('/login');
   };
 
-const handleChangePicture = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleChangePicture = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
 
     const reader = new FileReader();
     reader.onloadend = async () => {
-      const base64Image = reader.result;
-      
+      const base64Image = reader.result; // dataURL
+
       try {
         const response = await fetch(`/api/users/${user.id}/image`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Image })
+          body: JSON.stringify({ image: base64Image }),
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (updateUser) {
-             updateUser({ image: data.image });
-          }
-        } else {
-          console.error('Failed to update image on server');
+        if (!response.ok) {
           alert('Failed to update image. Please try again.');
+          return;
         }
+
+        const data = await response.json();
+        updateUser?.({ image: data.image });
       } catch (error) {
         console.error('Error updating image:', error);
+        alert('Error updating image.');
       }
     };
+
     reader.readAsDataURL(file);
+
+    e.target.value = '';
   };
 
-const handleDeletePicture = async () => {
-    if (!window.confirm("Are you sure you want to delete your profile picture?")) return;
+  const handleDeletePicture = async () => {
+    if (!user?.id) return;
+    if (!window.confirm('Are you sure you want to delete your profile picture?')) return;
 
     try {
       const response = await fetch(`/api/users/${user.id}/image`, {
         method: 'DELETE',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (updateUser) {
-           updateUser({ image: data.image });
-        }
-      } else {
-        console.error('Failed to delete image from server');
+      if (!response.ok) {
+        alert('Failed to delete image.');
+        return;
       }
+
+      const data = await response.json();
+      updateUser?.({ image: data.image }); // "" / null / placeholder
+      setIsPopoverOpen(false);
     } catch (error) {
       console.error('Error deleting image:', error);
+      alert('Error deleting image.');
     }
   };
-
 
   return (
     <div
@@ -103,64 +108,100 @@ const handleDeletePicture = async () => {
         borderBottom: '3px solid var(--border-color)',
       }}
     >
+      {/* Search Area - Wrapped in a relative div for the dropdown */}
       <div
         style={{
           flex: '0 1 1000px',
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: 'var(--search-bg)',
-          padding: '20px 40px',
-          borderRadius: '20px',
-          gap: '25px',
+          position: 'relative',
         }}
       >
-        <Search size={30} opacity={0.8} />
-        <input
-          type="text"
-          placeholder="Search Drive..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'inherit',
-            width: '100%',
-            outline: 'none',
-            fontSize: '1.6rem',
-          }}
-        />
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '50px' }}>
-        <button
-          onClick={toggleTheme}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'inherit',
-          }}
-        >
-          {theme === 'dark' ? <Sun size={30} /> : <Moon size={30} />}
-        </button>
-
-        <Settings size={70} />
         <div
           style={{
-            width: '100px',
-            height: '55px',
-            borderRadius: '50%',
-            backgroundColor: '#4facfe',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            color: 'white',
+            backgroundColor: 'var(--search-bg)',
+            padding: '20px 40px',
+            borderRadius: '20px',
+            gap: '25px',
           }}
         >
-          U
-      <div style={{ display: 'flex', alignItems: 'center', gap: '45px' }}>
+          <Search size={30} opacity={0.8} />
+          <input
+            type="text"
+            placeholder="Search Drive..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              width: '100%',
+              outline: 'none',
+              fontSize: '1.6rem',
+            }}
+          />
+        </div>
+
+        {/* Floating Search Results Dropdown */}
+        {searchQuery && searchQuery.trim().length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '10px',
+            backgroundColor: theme === 'dark' ? '#2d2d2d' : '#ffffff', 
+            border: '1px solid var(--border-color)',
+            borderRadius: '20px',
+            boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
+            zIndex: 1000,
+            maxHeight: '400px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '15px 0'
+          }}>
+            {isSearching ? (
+              <div style={{ padding: '20px 40px', fontSize: '1.4rem', opacity: 0.7 }}>
+                Searching...
+              </div>
+            ) : searchResults && searchResults.length === 0 ? (
+              <div style={{ padding: '20px 40px', fontSize: '1.4rem', opacity: 0.7 }}>
+                No results found for "{searchQuery}"
+              </div>
+            ) : (
+              searchResults.map((file) => {
+                const isFolder = file.type === "folder" || !file.name.includes('.');
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => onResultClick && onResultClick(file)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px',
+                      padding: '15px 40px',
+                      cursor: 'pointer',
+                      fontSize: '1.4rem',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    {isFolder ? <Folder size={24} color="#74b9ff" /> : <FileText size={24} opacity={0.7} />}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {file.name}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
+       {/* Right side: Theme toggle*/}     
+       <div style={{ display: 'flex', alignItems: 'center', gap: '45px' }}>
         <button 
           onClick={toggleTheme} 
           style={{ 

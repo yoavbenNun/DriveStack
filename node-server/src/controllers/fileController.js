@@ -88,19 +88,19 @@ exports.updateFileById = async (req, res) => {
     meta.parentId = parentId || null;
   }
 
-  // Update content if provided and it's a file
- if (content !== undefined && meta.type === 'file') {
+  if (typeof content === 'string' && content.trim() !== "" && meta.type === 'file') {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
     try {
       const encodedContent = cleanBase64(content);
 
-      // delete old content first
+      // Delete old content first
       try {
           await client.send(`DELETE ${id}`);
       } catch (delErr) {
           console.warn(`[UPDATE] Warning: Delete failed for ${id}, proceeding to create.`);
       }
 
+      // Create new content
       await client.send(`POST ${id} ${encodedContent}`);
       
       meta.size = encodedContent.length; 
@@ -108,10 +108,12 @@ exports.updateFileById = async (req, res) => {
 
     } catch (e) {
       console.error("Failed to update content on C++ server:", e.message);
-      meta.updatedAt = new Date().toISOString();return res.status(200).json(meta);
-      //return res.status(500).json({ error: "Failed to save file content" });
+      return res.status(500).json({ error: "Failed to save file content" });
     }
   }
+
+  meta.updatedAt = new Date().toISOString();
+  return res.status(200).json(meta);
 };
 
 
@@ -327,7 +329,6 @@ exports.searchFiles = async (req, res) => {
   const q = String(req.params.query || "").trim();
   if (!q) return res.status(400).json({ error: "Query is required" });
 
-  // ✅ auth כמו getAllFiles
   const auth = getUserIdFromAuth(req);
   if (auth.error) return res.status(401).json({ error: auth.error });
   const userId = auth.userId;
@@ -362,7 +363,18 @@ exports.searchFiles = async (req, res) => {
       contentMatchMetas = ids
         .map(id => FileModel.findById(id))
         .filter(Boolean)
-        .filter(f => f.ownerId === userId); // dont share other's files
+        .filter(f => f.ownerId === userId) // dont share other's files
+        .filter(f => {
+          if (f.type === "folder") return false;
+          
+          const mime = String(f.mime || "").toLowerCase();
+          const name = String(f.name || "").toLowerCase();
+          
+          const isTextMime = mime.startsWith("text/") || mime.includes("json") || mime.includes("xml") || mime.includes("csv");
+          const isTextExt = name.endsWith(".txt") || name.endsWith(".js") || name.endsWith(".html") || name.endsWith(".css") || name.endsWith(".cpp") || name.endsWith(".h") || name.endsWith(".md");
+          
+          return isTextMime || isTextExt;
+        });
     }
   } catch (error) {
     console.log("Content search warning:", error.message);
@@ -385,22 +397,17 @@ exports.searchFiles = async (req, res) => {
   for (const meta of contentCandidates) {
     const existing = byId.get(meta.id);
 
-    const mime = String(meta.mime || "");
-    const isProbablyText =
-      mime.startsWith("text/") || mime.includes("json") || mime.includes("xml") || mime.includes("csv");
-
     let contentHits = [];
 
-    if (isProbablyText) {
-      try {
-        const resp = await client.send(`GET ${meta.id}`);
-        if (!String(resp).startsWith("404")) {
-          const base64 = extractBodyFromCppResponse(resp);
-          const text = tryDecodeBase64ToUtf8(base64);
-          contentHits = buildSnippets(text, q);
-        }
-      } catch {
+    try {
+      const resp = await client.send(`GET ${meta.id}`);
+      if (!String(resp).startsWith("404")) {
+        const base64 = extractBodyFromCppResponse(resp);
+        const text = tryDecodeBase64ToUtf8(base64);
+        contentHits = buildSnippets(text, q);
       }
+    } catch {
+      // ignore
     }
 
     const merged = {
