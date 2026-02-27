@@ -1,10 +1,12 @@
 const jwt = require('jsonwebtoken');
-const UserModel = require('../models/user.model');
+const bcrypt = require('bcrypt'); // הוספנו את ספריית ההצפנה
+const UserModel = require('../models/user.model'); // כעת זה מצביע למודל המונגו שלנו
 
 const SECRET_KEY = 'my_secret_key_123';
 const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
-exports.register = (req, res) => {
+// הוספנו async
+exports.register = async (req, res) => {
     const { username, password, name, email, image } = req.body;
 
     if (!username || !password || !email) {
@@ -12,19 +14,29 @@ exports.register = (req, res) => {
     }
 
     try {
-        // check if user is exist
-        if (UserModel.exists(username)) {
-            return res.status(409).json({ error: "User already exists" }); 
+        const existingUser = await UserModel.findOne({ $or: [{ username }, { email }] });
+        
+        if (existingUser) {
+            if (existingUser.username === username) {
+                return res.status(409).json({ error: "User already exists" }); 
+            }
+            if (existingUser.email === email) {
+                return res.status(409).json({ error: "Email already in use" });
+            }
         }
 
-        //check if email is in use
-        if (UserModel.findByEmail(email)) {
-            return res.status(409).json({ error: "Email already in use" });
-        }
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-        // create new user
-        const newUser = new UserModel(username, password, name, email, image);
-        newUser.save();
+        const newUser = new UserModel({
+            username,
+            password: hashedPassword, 
+            name,
+            email,
+            image: image || DEFAULT_AVATAR
+        });
+        
+        await newUser.save(); 
 
         console.log(`New user registered: ${username} (ID: ${newUser.id}) Email: ${email}`);
 
@@ -32,30 +44,29 @@ exports.register = (req, res) => {
 
     } catch (error) {
         console.error('Register Error:', error);
-        res.status(400).json({ error: 'Failed to register user' });
+        res.status(500).json({ error: 'Failed to register user' });
     }
 };
 
-exports.getUser = (req, res) => {
+exports.getUser = async (req, res) => {
     try {
         const userId = req.params.id; 
-        const user = UserModel.findById(userId);
+        
+        const user = await UserModel.findById(userId).select('-password');
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // retrun details without password
-        const { password, ...userWithoutPassword } = user;
-        res.json(userWithoutPassword);
+        res.json(user);
 
     } catch (error) {
         console.error('Get User Error:', error);
-        res.status(404).json({ error: 'Failed to fetch user' });
+        res.status(500).json({ error: 'Failed to fetch user' });
     }
 };
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -63,15 +74,17 @@ exports.login = (req, res) => {
     }
 
     try {
-        // search user by name
-        const user = UserModel.findByUsername(username);
+        const user = await UserModel.findOne({ username });
 
-        // check if user exist and if password match
-        if (!user || user.password !== password) {
+        if (!user) {
             return res.status(404).json({ error: "Invalid username or password" });
         }
 
-        // creat token
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(404).json({ error: "Invalid username or password" });
+        }
+
         const token = jwt.sign(
             { id: user.id, username: user.username }, 
             SECRET_KEY, 
@@ -94,7 +107,7 @@ exports.login = (req, res) => {
     }
 };
 
-exports.updateProfileImage = (req, res) => {
+exports.updateProfileImage = async (req, res) => {
     const { id } = req.params;
     const { image } = req.body;
 
@@ -103,13 +116,15 @@ exports.updateProfileImage = (req, res) => {
     }
 
     try {
-        const user = UserModel.findById(id);
+        const user = await UserModel.findByIdAndUpdate(
+            id, 
+            { image: image },
+            { new: true }
+        );
         
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
-
-        user.image = image;
 
         res.json({ message: "Profile image updated successfully", image: user.image });
     } catch (error) {
@@ -118,17 +133,19 @@ exports.updateProfileImage = (req, res) => {
     }
 };
 
-exports.deleteProfileImage = (req, res) => {
+exports.deleteProfileImage = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const user = UserModel.findById(id);
+        const user = await UserModel.findByIdAndUpdate(
+            id,
+            { image: DEFAULT_AVATAR },
+            { new: true }
+        );
         
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
-
-        user.image = DEFAULT_AVATAR;
 
         res.json({ message: "Profile image deleted successfully", image: user.image });
     } catch (error) {

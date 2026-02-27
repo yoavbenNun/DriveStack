@@ -12,6 +12,21 @@ services:
       timeout: 2s
       retries: 30
 
+
+  mongodb:
+    image: mongo:latest
+    container_name: drive_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   node-server:
     build: ./node-server
     ports:
@@ -22,8 +37,11 @@ services:
     environment:
       - CPP_HOST=cpp-server
       - CPP_PORT=8080
+      - MONGO_URI=mongodb://mongodb:27017/drive_db
     depends_on:
       cpp-server:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -43,3 +61,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - node-server
+
+
+volumes:
+  mongo_data:    
