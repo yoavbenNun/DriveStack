@@ -1,14 +1,12 @@
-// web-server/src/controllers/fileController.js
 const TcpClient = require('../services/TcpClient');
 const FileModel = require('../models/file.model'); 
-const { v4: uuidv4 } = require('uuid');
 
 // C++ server
 const CPP_PORT = process.env.CPP_PORT || 8080; 
 const CPP_HOST = process.env.CPP_HOST || 'localhost';
 
 const jwt = require('jsonwebtoken');
-const  SECRET_KEY = 'my_secret_key_123'; // In production, use a secure environment variable
+const SECRET_KEY = 'my_secret_key_123'; 
 
 function normalizeType(type) {
   const t = String(type ?? "").toLowerCase();
@@ -21,7 +19,7 @@ function cleanBase64(s) {
 }
 
 // GET /api/files
-exports.getAllFiles = (req, res) => {
+exports.getAllFiles = async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -40,39 +38,44 @@ exports.getAllFiles = (req, res) => {
     const userId = decoded.id; 
     const { starred, trashed, shared } = req.query;
     
-    let allFiles;
+    let query = {};
 
     if (String(shared) === "true") {
-      allFiles = FileModel.getSharedWithUser(userId);
-      
-      allFiles = allFiles.map(file => ({ ...file, shared: true }));
-      
+      query = { 
+          "permissions.holderId": userId,
+          ownerId: { $ne: userId } 
+      };
     } else {
-      allFiles = FileModel.getAll().filter(f => f.ownerId === userId);
+      query = { ownerId: userId };
     }
 
     if (starred !== undefined) {
-      const s = String(starred) === "true";
-      allFiles = allFiles.filter(f => Boolean(f.starred) === s);
+      query.starred = String(starred) === "true";
     }
 
     if (trashed !== undefined) {
-      const t = String(trashed) === "true";
-      allFiles = allFiles.filter(f => Boolean(f.trashed) === t);
+      query.trashed = String(trashed) === "true";
     }
 
-    return res.status(200).json(allFiles);
+    let allFiles = await FileModel.find(query);
+
+    const formattedFiles = allFiles.map(file => {
+        const obj = file.toJSON();
+        if (String(shared) === "true") obj.shared = true;
+        return obj;
+    });
+
+    return res.status(200).json(formattedFiles);
   } catch (e) {
     console.error("getAllFiles failed:", e);
     return res.status(500).json({ error: e.message || "getAllFiles failed" });
   }
 };
 
-
 // PATCH /api/files/:id
 exports.updateFileById = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id); 
 
   if (!meta) {
     return res.status(404).json({ error: "File not found" });
@@ -93,14 +96,12 @@ exports.updateFileById = async (req, res) => {
     try {
       const encodedContent = cleanBase64(content);
 
-      // Delete old content first
       try {
           await client.send(`DELETE ${id}`);
       } catch (delErr) {
           console.warn(`[UPDATE] Warning: Delete failed for ${id}, proceeding to create.`);
       }
 
-      // Create new content
       await client.send(`POST ${id} ${encodedContent}`);
       
       meta.size = encodedContent.length; 
@@ -112,10 +113,9 @@ exports.updateFileById = async (req, res) => {
     }
   }
 
-  meta.updatedAt = new Date().toISOString();
+  await meta.save(); 
   return res.status(200).json(meta);
 };
-
 
 // POST /api/files
 exports.createFileOrDir = async (req, res) => {
@@ -133,16 +133,26 @@ exports.createFileOrDir = async (req, res) => {
     return res.status(400).json({ error: "Invalid token." });
   }
 
-
   const { name, type, parentId, content, encoding, mime, size } = req.body || {};
 
   if (!name || typeof name !== "string" || name.trim() === "") {
     return res.status(400).json({ error: "Name is required" });
   }
 
-  const id = uuidv4();
   const t = normalizeType(type);
-  const now = new Date().toISOString();
+
+  const newFile = new FileModel({
+    name: name.trim(),
+    type: t,
+    parentId: parentId || null,
+    ownerId: userId,
+    permissions: [],
+    mime: mime || null,
+    encoding: encoding || null,
+    size: typeof size === "number" ? size : null,
+  });
+
+  const id = newFile._id.toString(); 
 
   if (t === "file") {
     const client = new TcpClient(CPP_PORT, CPP_HOST);
@@ -154,22 +164,10 @@ exports.createFileOrDir = async (req, res) => {
     }
   }
 
-  FileModel.create({
-    id,
-    name: name.trim(),
-    type: t,
-    parentId: parentId || null,
-    ownerId: userId,
-    createdAt: now,
-    updatedAt: now,
-    permissions: [],
-    mime: mime || null,
-    encoding: encoding || null,
-    size: typeof size === "number" ? size : null,
-  });
+  await newFile.save(); 
 
   res.setHeader("Location", `/api/files/${id}`);
-  return res.status(201).json({ id }); //back id 
+  return res.status(201).json({ id });
 };
 
 // GET /api/files/:id
@@ -177,8 +175,6 @@ function extractBodyFromCppResponse(resp) {
   const s = String(resp || "");
   const idx = s.indexOf("\n\n");
   let body = idx >= 0 ? s.slice(idx + 2) : s;
-
-  // if still start with status 200/404 make down the first line 
   body = body.replace(/^\s*\d{3}.*\n/, "");
   return body.replace(/\r/g, "").replace(/\s/g, "");
 }
@@ -186,7 +182,7 @@ function extractBodyFromCppResponse(resp) {
 // GET /api/files/:id/download
 exports.downloadFile = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id);
 
   if (!meta) return res.status(404).json({ error: "File not found" });
   if (meta.type !== "file") return res.status(400).json({ error: "Cannot download a folder" });
@@ -215,12 +211,12 @@ exports.downloadFile = async (req, res) => {
 
 exports.getFileById = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id);
 
   if (!meta) return res.status(404).json({ error: "File not found" });
 
   if (meta.type !== "file") {
-    return res.status(200).json({ ...meta, content: null });
+    return res.status(200).json({ ...meta.toJSON(), content: null });
   }
 
   const client = new TcpClient(CPP_PORT, CPP_HOST);
@@ -243,7 +239,7 @@ exports.getFileById = async (req, res) => {
     }
 
     return res.status(200).json({
-      ...meta,
+      ...meta.toJSON(),
       content,
       encoding: meta.encoding || "base64",
       mime: meta.mime || "application/octet-stream",
@@ -257,7 +253,7 @@ exports.getFileById = async (req, res) => {
 // DELETE /api/files/:id
 exports.deleteFileById = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id);
 
   if (!meta) {
     return res.status(404).json({ error: 'File not found' });
@@ -272,7 +268,7 @@ exports.deleteFileById = async (req, res) => {
     }
   }
 
-  FileModel.delete(id);
+  await FileModel.findByIdAndDelete(id); 
   return res.status(204).end();
 };
 
@@ -336,14 +332,10 @@ exports.searchFiles = async (req, res) => {
   const parentIdFilter = req.query.parentId; 
   const includeTrashed = String(req.query.trashed) === "true"; 
 
-  const allFiles = FileModel.getAll().filter(f => f.ownerId === userId);
-
-  const qLower = q.toLowerCase();
-
-  // --- 1) Name matches (case-insensitive) ---
-  const nameMatches = allFiles.filter(f =>
-    String(f.name || "").toLowerCase().includes(qLower)
-  );
+  const nameMatches = await FileModel.find({
+      ownerId: userId,
+      name: { $regex: q, $options: 'i' }
+  });
 
   // --- 2) Content matches via C++ SEARCH ---
   let contentMatchMetas = [];
@@ -352,7 +344,6 @@ exports.searchFiles = async (req, res) => {
   try {
     const response = await client.send(`SEARCH ${q}`);
 
-    // C++ returns: "200 Ok\n\n<ID1>\n<ID2>"
     if (!String(response).startsWith("404") && String(response).includes("\n\n")) {
       const parts = String(response).split("\n\n");
       const ids = (parts[1] || "")
@@ -360,13 +351,13 @@ exports.searchFiles = async (req, res) => {
         .map(s => s.trim())
         .filter(Boolean);
 
-      contentMatchMetas = ids
-        .map(id => FileModel.findById(id))
-        .filter(Boolean)
-        .filter(f => f.ownerId === userId) // dont share other's files
-        .filter(f => {
-          if (f.type === "folder") return false;
-          
+      const foundMetas = await FileModel.find({
+          _id: { $in: ids },
+          ownerId: userId,
+          type: 'file'
+      });
+
+      contentMatchMetas = foundMetas.filter(f => {
           const mime = String(f.mime || "").toLowerCase();
           const name = String(f.name || "").toLowerCase();
           
@@ -374,7 +365,7 @@ exports.searchFiles = async (req, res) => {
           const isTextExt = name.endsWith(".txt") || name.endsWith(".js") || name.endsWith(".html") || name.endsWith(".css") || name.endsWith(".cpp") || name.endsWith(".h") || name.endsWith(".md");
           
           return isTextMime || isTextExt;
-        });
+      });
     }
   } catch (error) {
     console.log("Content search warning:", error.message);
@@ -383,10 +374,9 @@ exports.searchFiles = async (req, res) => {
   // --- 3) Merge uniques by id ---
   const byId = new Map();
 
-  // Name matches get match info immediately
   for (const f of nameMatches) {
     byId.set(f.id, {
-      ...f,
+      ...f.toJSON(),
       match: { name: true, content: [] },
     });
   }
@@ -396,7 +386,6 @@ exports.searchFiles = async (req, res) => {
 
   for (const meta of contentCandidates) {
     const existing = byId.get(meta.id);
-
     let contentHits = [];
 
     try {
@@ -406,30 +395,16 @@ exports.searchFiles = async (req, res) => {
         const text = tryDecodeBase64ToUtf8(base64);
         contentHits = buildSnippets(text, q);
       }
-    } catch {
-      // ignore
-    }
+    } catch { }
 
     const merged = {
-      ...(existing || meta),
+      ...(existing || meta.toJSON()),
       match: {
         name: existing?.match?.name ?? false,
         content: contentHits,
       },
     };
-
     byId.set(meta.id, merged);
-  }
-
-  for (const meta of contentMatchMetas.slice(MAX_CONTENT_SNIPPETS_FILES)) {
-    const existing = byId.get(meta.id);
-    byId.set(meta.id, {
-      ...(existing || meta),
-      match: {
-        name: existing?.match?.name ?? false,
-        content: existing?.match?.content ?? [{ snippet: "(match in content)", index: -1 }],
-      },
-    });
   }
 
   // --- 4) Apply filters (trashed/parent) ---
@@ -446,31 +421,34 @@ exports.searchFiles = async (req, res) => {
 };
 
 // PATCH /api/files/:id/star
-exports.setStarred = (req, res) => {
+exports.setStarred = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id);
   if (!meta) return res.status(404).json({ error: "File not found" });
 
   meta.starred = Boolean(req.body?.starred);
-  meta.updatedAt = new Date().toISOString();
+  await meta.save();
   return res.status(200).json(meta);
 };
 
 // PATCH /api/files/:id/trash
-exports.setTrashed = (req, res) => {
+exports.setTrashed = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id);
   if (!meta) return res.status(404).json({ error: "File not found" });
 
   meta.trashed = Boolean(req.body?.trashed);
-  meta.updatedAt = new Date().toISOString();
+  if (meta.trashed) meta.deletedAt = new Date();
+  else meta.deletedAt = null;
+  
+  await meta.save();
   return res.status(200).json(meta);
 };
 
 // PATCH /api/files/:id/permissions
-exports.replacePermissions = (req, res) => {
+exports.replacePermissions = async (req, res) => {
   const id = req.params.id;
-  const meta = FileModel.findById(id);
+  const meta = await FileModel.findById(id);
   if (!meta) return res.status(404).json({ error: "File not found" });
 
   const { permissions } = req.body || {};
@@ -479,16 +457,15 @@ exports.replacePermissions = (req, res) => {
   }
 
   meta.permissions = permissions;
-  meta.updatedAt = new Date().toISOString();
+  await meta.save();
 
   return res.status(200).json(meta);
 };
 
-// DELETE /api/files/:id/shared (for unsharing)
-exports.removeSharedFile = (req, res) => {
+// DELETE /api/files/:id/shared
+exports.removeSharedFile = async (req, res) => {
     try {
         const fileId = req.params.id;
-
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
         if (!token) return res.status(401).json({ error: "No token provided" });
@@ -496,21 +473,13 @@ exports.removeSharedFile = (req, res) => {
         const decoded = jwt.verify(token, SECRET_KEY);
         const userId = decoded.id;
 
-        const file = FileModel.findById(fileId);
+        const file = await FileModel.findById(fileId);
         if (!file) {
-            console.log(`[RemoveShared] File ${fileId} not found`);
             return res.status(404).json({ error: "File not found" });
         }
 
-        if (Array.isArray(file.permissions)) {
-            const initialCount = file.permissions.length;
-            file.permissions = file.permissions.filter(p => {
-                return p.holderId !== userId && p.userId !== userId;
-            });
-            console.log(`[RemoveShared] User ${userId} removed. Permissions: ${initialCount} -> ${file.permissions.length}`);
-        } else {
-            console.log(`[RemoveShared] No permissions array found for file ${fileId}`);
-        }
+        file.permissions = file.permissions.filter(p => p.holderId !== userId);
+        await file.save();
 
         return res.status(200).json({ message: "Access removed" });
     } catch (err) {
