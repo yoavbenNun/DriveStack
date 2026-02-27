@@ -1,114 +1,35 @@
-// src/models/file.model.js
+const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 
-// Use a Map for better performance and fast retrieval by ID (O(1))
-const filesDb = new Map();
+const permissionSchema = new mongoose.Schema({
+    pId: { type: String, default: uuidv4 }, 
+    type: { type: String, required: true },
+    holderId: { type: String, required: true }
+}, { _id: false });
 
-class FileModel {
-    // The constructor accepts a data object for flexibility
-    constructor(data) {
-        this.id = data.id || uuidv4();
-        this.ownerId = data.ownerId; // User ID of the owner
-        this.name = data.name;
-        this.type = data.type; // 'file' or 'dir'
-        this.parentId = data.parentId || null;
-
-        this.createdAt = data.createdAt || new Date().toISOString();
-        this.updatedAt = data.updatedAt || new Date().toISOString();
-
-        this.shared = Boolean(data.shared ?? false);
-        this.starred = Boolean(data.starred ?? false);
-        this.trashed = Boolean(data.trashed ?? false);
-        this.deletedAt = data.deletedAt ?? null; // ISO string when moved to trash
-
-        // Permissions array - integral part of the model
-        this.permissions = data.permissions || []; 
-    }
+const fileSchema = new mongoose.Schema({
+    ownerId: { type: String, required: true },
+    name: { type: String, required: true },
+    type: { type: String, required: true }, // 'file' or 'dir'
+    parentId: { type: String, default: null },
     
-    // --- Static Methods (Database operations) ---
-
-    static getAll() {
-        // Convert Map values to an array
-        return Array.from(filesDb.values());
-    }
-
-    static findById(id) {
-        const fileData = filesDb.get(id);
-        // Return the instance itself so methods like addPermission() will work
-        return fileData; 
-    }
-
-    static create(data) {
-        // Create a new instance of the class (Critical for instance methods)
-        const newFile = new FileModel(data);
-        // Save to the in-memory DB
-        filesDb.set(newFile.id, newFile);
-        return newFile;
-    }
-
-    static delete(id) {
-        return filesDb.delete(id);
-    }
-
-    // --- Instance Methods (Operations on a specific file) ---
-
-    addPermission(type, holderId) {
-        const newPermission = {
-            pId: uuidv4(),      // Unique ID for the permission
-            type: type,      
-            holderId: holderId 
-        };
-        this.permissions.push(newPermission);
-        
-        // Update the reference in the DB (redundant in JS due to reference, but good practice)
-        filesDb.set(this.id, this); 
-        
-        return newPermission;
-    }
-
-    getPermissions() {
-        return this.permissions;
-    }
-
-    findPermissionById(pId) {
-        return this.permissions.find(p => p.pId === pId);
-    }
-
-    updatePermission(pId, newType) {
-        const permission = this.findPermissionById(pId);
-        if (permission) {
-            permission.type = newType;
-        }
-        return permission;
-    }
-
-    removePermission(pId) {
-        const initialLength = this.permissions.length;
-        this.permissions = this.permissions.filter(p => p.pId !== pId);
-        
-        return this.permissions.length < initialLength;
-    }
-    setStarred(flag) {
-        this.starred = Boolean(flag);
-        filesDb.set(this.id, this);
-        return this;
-    }
-
-    setTrashed(flag) {
-        this.trashed = Boolean(flag);
-        this.deletedAt = flag ? new Date().toISOString() : null;
-        filesDb.set(this.id, this);
-        return this;
-    }
-
+    shared: { type: Boolean, default: false },
+    starred: { type: Boolean, default: false },
+    trashed: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
     
-    static getSharedWithUser(userId) {
-        const allFiles = this.getAll();
-        return allFiles.filter(file => 
-            file.ownerId !== userId && 
-            file.permissions.some(p => p.holderId === userId)
-        );
-    }
-}
+    permissions: [permissionSchema]
+}, { 
+    timestamps: true 
+});
 
-module.exports = FileModel;
+fileSchema.set('toJSON', {
+    virtuals: true,
+    transform: (doc, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+        delete ret.__v;
+    }
+});
+
+module.exports = mongoose.model('File', fileSchema);
