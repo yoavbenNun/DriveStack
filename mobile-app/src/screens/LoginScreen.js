@@ -3,7 +3,7 @@ import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } f
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, setUserToken }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,8 +36,8 @@ export default function LoginScreen({ navigation }) {
 
     await AsyncStorage.setItem('userToken', token);
     console.log("Token saved successfully:", token);
+    setUserToken(token);
 
-    navigation.replace('Home');
   } catch (error) {
     console.error(
       'Login error:',
