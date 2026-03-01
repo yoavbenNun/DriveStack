@@ -1,13 +1,14 @@
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt'); // הוספנו את ספריית ההצפנה
-const UserModel = require('../models/user.model'); // כעת זה מצביע למודל המונגו שלנו
+const bcrypt = require('bcrypt'); 
+const UserModel = require('../models/user.model'); 
 
 const SECRET_KEY = 'my_secret_key_123';
 const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png";
 
-// הוספנו async
 exports.register = async (req, res) => {
-    const { username, password, name, email, image } = req.body;
+    const { username, password, name, email } = req.body;
+
+    const imagePath = req.file ? req.file.path : DEFAULT_AVATAR;
 
     if (!username || !password || !email) {
         return res.status(400).json({ error: "Username, password, and email are required" });
@@ -33,7 +34,7 @@ exports.register = async (req, res) => {
             password: hashedPassword, 
             name,
             email,
-            image: image || DEFAULT_AVATAR
+            image: imagePath
         });
         
         await newUser.save(); 

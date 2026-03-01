@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator, ScrollView, TouchableOpacity, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 
 export default function RegisterScreen({ navigation }) {
@@ -9,12 +10,66 @@ export default function RegisterScreen({ navigation }) {
     name: '',
     email: ''
   });
+  const [profileImage, setProfileImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // פונקציה לפתיחת המצלמה
+  const takePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission required', 'You need to allow access to your camera.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  // פונקציה לבחירה מהגלריה (מה שעשינו קודם)
+  const chooseFromGallery = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission required', 'You need to allow access to your photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], // תיקנו את האזהרה ממקודם
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  // הפונקציה שמופעלת בלחיצה על העיגול - מקפיצה תפריט בחירה
+  const handleImageSelection = () => {
+    Alert.alert(
+      "Profile Picture",
+      "Choose an option",
+      [
+        { text: "Take Photo 📷", onPress: takePhoto },
+        { text: "Choose from Gallery 🖼️", onPress: chooseFromGallery },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
 
   const handleRegister = async () => {
     const { username, password, name, email } = formData;
 
-    // Basic validation
     if (!username || !password || !email || !name) {
       Alert.alert('Error', 'All fields are required');
       return;
@@ -23,12 +78,28 @@ export default function RegisterScreen({ navigation }) {
     setIsLoading(true);
 
     try {
-      // Sending request to our Node.js server
-      await api.post('/users', {
-        username: username.trim(),
-        password: password,
-        name: name.trim(),
-        email: email.trim().toLowerCase()
+      const dataToSend = new FormData();
+      dataToSend.append('username', username.trim());
+      dataToSend.append('password', password);
+      dataToSend.append('name', name.trim());
+      dataToSend.append('email', email.trim().toLowerCase());
+
+      if (profileImage) {
+        const filename = profileImage.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image`;
+        
+        dataToSend.append('profilePicture', {
+          uri: profileImage,
+          name: filename,
+          type,
+        });
+      }
+
+      await api.post('/users', dataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       Alert.alert('Success', 'Account created successfully! Please login.', [
@@ -47,6 +118,17 @@ export default function RegisterScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Join Drive Clone 📁</Text>
+
+      {/* אזור בחירת התמונה - עכשיו קורא לתפריט הבחירה */}
+      <View style={styles.imagePickerContainer}>
+        <TouchableOpacity style={styles.imagePicker} onPress={handleImageSelection}>
+          {profileImage ? (
+            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          ) : (
+            <Text style={styles.imagePickerText}>📷 Add Photo</Text>
+          )}
+        </TouchableOpacity>
+      </View>
       
       <TextInput
         style={styles.input}
@@ -90,25 +172,11 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  input: {
-    height: 50,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    backgroundColor: '#fff',
-  },
+  container: { flexGrow: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
+  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  imagePickerContainer: { alignItems: 'center', marginBottom: 25 },
+  imagePicker: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#ccc', borderStyle: 'dashed', overflow: 'hidden' },
+  profileImage: { width: '100%', height: '100%' },
+  imagePickerText: { color: '#666', fontSize: 14, textAlign: 'center' },
+  input: { height: 50, borderColor: '#ccc', borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, backgroundColor: '#fff' },
 });
