@@ -9,40 +9,52 @@ export default function LoginScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    // Validation: Check if fields are empty
-    if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password');
+  if (!username || !password) {
+    Alert.alert('Error', 'Please enter both username and password');
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const response = await api.post('/tokens', {
+      username: username.trim(),
+      password,
+    });
+
+    console.log("LOGIN RES:", response.data);
+
+    const token =
+      response.data.token ||
+      response.data.jwt ||
+      response.data.accessToken;
+
+    if (!token) {
+      Alert.alert("Login Failed", "Server did not return a token");
       return;
     }
 
-    setIsLoading(true);
+    await AsyncStorage.setItem('userToken', token);
+    console.log("Token saved successfully:", token);
 
-    try {
-      // Sending POST request to our Node.js server login endpoint
-      const response = await api.post('/login', {
-        username: username.trim(),
-        password: password
-      });
+    navigation.replace('Home');
+  } catch (error) {
+    console.error(
+      'Login error:',
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
 
-      // Extracting the JWT token from the server response
-      const { token } = response.data;
+    const errorMessage =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      'Something went wrong. Please try again.';
 
-      // Persisting the token in the device's local storage
-      await AsyncStorage.setItem('userToken', token);
-      console.log("Token saved successfully:", token);
-
-      // Navigate to Home screen and reset the stack so the user cannot go back to Login
-      navigation.replace('Home');
-
-    } catch (error) {
-      console.error('Login error:', error);
-      // Retrieve error message from server response or use a default one
-      const errorMessage = error.response?.data?.error || 'Something went wrong. Please try again.';
-      Alert.alert('Login Failed', errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    Alert.alert('Login Failed', errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
