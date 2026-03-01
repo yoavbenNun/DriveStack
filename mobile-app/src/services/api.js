@@ -75,6 +75,6 @@ export async function shareItem(id, shareWith) {
 
 // Toggle star
 export async function toggleStar(id, starred) {
-  const res = await api.patch(`/files/${id}`, { starred });
+  const res = await api.patch(`/files/${id}/star`, { starred });
   return res.data;
 }
