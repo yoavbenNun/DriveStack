@@ -45,11 +45,36 @@ export async function getFileById(id) {
   return res.data;
 }
 
+//create Folder
 export async function createFolder(name, parentId = null) {
   const res = await api.post("/files", {
     name,
     type: "folder",
     parentId,
   });
+  return res.data;
+}
+
+// Rename
+export async function renameItem(id, name) {
+  const res = await api.patch(`/files/${id}`, { name });
+  return res.data;
+}
+
+// Delete (to trash / delete)
+export async function deleteItem(id) {
+  const res = await api.delete(`/files/${id}`);
+  return res.data;
+}
+
+// Share 
+export async function shareItem(id, shareWith) {
+  const res = await api.post(`/files/${id}/share`, { shareWith });
+  return res.data;
+}
+
+// Toggle star
+export async function toggleStar(id, starred) {
+  const res = await api.patch(`/files/${id}`, { starred });
   return res.data;
 }
