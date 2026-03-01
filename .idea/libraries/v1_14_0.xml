@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="v1.14.0">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/build/_deps/googletest-subbuild/googletest-populate-prefix/src/v1.14.0.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen'; 
 import HomeScreen from '../screens/HomeScreen';
+import MyDriveScreen from "../screens/MyDriveScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -21,7 +22,12 @@ export default function AppNavigator() {
       />
       <Stack.Screen 
         name="Home" 
-        component={HomeScreen} 
+        component={MyDriveScreen} 
+        options={{ title: 'My Drive' }} 
+      />
+      <Stack.Screen 
+        name="MyDrive" 
+        component={MyDriveScreen} 
         options={{ title: 'My Drive' }} 
       />
     </Stack.Navigator>
