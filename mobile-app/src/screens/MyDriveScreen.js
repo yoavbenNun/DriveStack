@@ -6,6 +6,7 @@ import { getFiles, createFolder, renameItem, deleteItem, toggleStar, shareItem, 
 import FileActionsSheet from "../components/FileActionsSheet";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function MyDriveScreen() {
   const [parentId, setParentId] = useState(null);
@@ -27,27 +28,27 @@ export default function MyDriveScreen() {
   
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    setError("");
+ const load = useCallback(async () => {
     try {
-      const data = await getFiles(null);
-      const all = Array.isArray(data) ? data : [];
-      const getParent = (x) => x.parentId ?? x.parent ?? null;
-      const filtered = parentId ? all.filter((x) => getParent(x) === parentId) : all.filter((x) => getParent(x) == null);
+      const data = await getFiles(); 
+      const filtered = Array.isArray(data) 
+        ? data.filter(item => item.trashed !== true) 
+        : [];
+        
       setItems(filtered);
     } catch (e) {
-      console.log("FILES ERR:", e?.response?.status, e?.response?.data || e?.message);
-      setError("Failed to load files");
+      console.log("FILES ERR:", e?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [parentId]);
+  }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const enterFolder = (folder) => {
     const fid = folder.id || folder._id;

@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
 
-export default function FileActionsSheet({ visible, item, onClose, onRename, onDelete, onShare, onToggleStar }) {
+export default function FileActionsSheet({ 
+  visible, item, onClose, onRename, onDelete, onShare, onToggleStar, 
+  onOpen, onRemoveAccess, onRestore, onDeletePermanent
+}) {
   const slide = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -16,6 +19,9 @@ export default function FileActionsSheet({ visible, item, onClose, onRename, onD
     inputRange: [0, 1],
     outputRange: [260, 0],
   });
+
+  const isShared = item?.shared === true;
+  const isTrashed = item?.trashed === true;
 
   return (
     <Modal visible={visible} transparent animationType="none">
@@ -36,10 +42,24 @@ export default function FileActionsSheet({ visible, item, onClose, onRename, onD
 
             <View style={{ height: 10 }} />
 
-            <ActionRow title="Rename" onPress={onRename} />
-            <ActionRow title="Share" onPress={onShare} />
-            <ActionRow title={item?.starred ? "Unstar" : "Star"} onPress={onToggleStar} />
-            <ActionRow title="Delete" danger onPress={onDelete} />
+            {isTrashed ? (
+              <>
+                <ActionRow title="Restore File" onPress={onRestore} />
+               <ActionRow title="Delete Permanently" danger onPress={onDeletePermanent} />
+             </>
+            ) : isShared ? (
+              <>
+                <ActionRow title="Open" onPress={onOpen} />
+                <ActionRow title="Remove Access" danger onPress={onRemoveAccess} />
+             </>
+            ) : (
+              <>
+                <ActionRow title="Rename" onPress={onRename} />
+                <ActionRow title="Share" onPress={onShare} />
+                <ActionRow title={item?.starred ? "Unstar" : "Star"} onPress={onToggleStar} />
+                <ActionRow title="Move to Trash" danger onPress={onDelete} />
+              </>
+            )}
 
             <View style={{ height: 6 }} />
             <ActionRow title="Cancel" secondary onPress={onClose} />
