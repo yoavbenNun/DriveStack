@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://192.168.1.113:3000/api';
+const BASE_URL = 'http://192.168.1.69:3000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -119,5 +119,10 @@ export async function deleteItem(id) {
 // Delete permanently
 export async function deletePermanently(id) {
   const res = await api.delete(`/files/${id}`); 
+  return res.data;
+}
+
+export async function searchFiles(query) {
+  const res = await api.get(`/search/${encodeURIComponent(query)}`);
   return res.data;
 }
