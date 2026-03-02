@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, ActivityIndicator, FlatList, RefreshControl, Text, View, Pressable, TextInput, Modal, TouchableOpacity, StyleSheet } from "react-native";
+import { Alert, ActivityIndicator, FlatList, RefreshControl, Text, View, Pressable, TextInput, Modal, TouchableOpacity, StyleSheet, Image, ScrollView } from "react-native";
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker'; 
 import { getFiles, createFolder, renameItem, deleteItem, toggleStar, shareItem, uploadFile, getFileById } from "../services/api";
@@ -22,6 +22,8 @@ export default function MyDriveScreen() {
   const [newName, setNewName] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [shareWith, setShareWith] = useState("");
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewData, setPreviewData] = useState({ type: null, content: null, name: '' });
   
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
@@ -127,10 +129,9 @@ const handleUploadFile = async () => {
 
   const handleOpenFile = async (fileItem) => {
     try {
-      Alert.alert("Downloading...", `Opening ${fileItem.name}`);
+      Alert.alert("Loading...", `Opening ${fileItem.name}`);
       
       const fileId = fileItem.id || fileItem._id;
-      
       const fullFile = await getFileById(fileId);
       
       if (!fullFile.content) {
@@ -138,20 +139,37 @@ const handleUploadFile = async () => {
         return;
       }
 
-      const safeName = fileItem.name.replace(/\s+/g, '_'); 
-      const fileUri = `${FileSystem.documentDirectory}${safeName}`;
+      const mime = String(fullFile.mime || '').toLowerCase();
+      const name = String(fileItem.name || '').toLowerCase();
+      
+      const isImage = mime.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+      const isText = mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.js') || name.endsWith('.json') || name.endsWith('.html');
 
-      await FileSystem.writeAsStringAsync(fileUri, fullFile.content, {
-        encoding: 'base64',
-      });
+      if (isImage) {
+        const imageUri = `data:${fullFile.mime || 'image/jpeg'};base64,${fullFile.content}`;
+        setPreviewData({ type: 'image', content: imageUri, name: fileItem.name });
+        setPreviewVisible(true);
 
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(fileUri, {
-          dialogTitle: `View ${fileItem.name}`,
-        });
+      } else if (isText) {
+        const safeName = fileItem.name.replace(/\s+/g, '_'); 
+        const fileUri = `${FileSystem.documentDirectory}${safeName}`;
+        await FileSystem.writeAsStringAsync(fileUri, fullFile.content, { encoding: 'base64' });
+        const textContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
+        
+        setPreviewData({ type: 'text', content: textContent, name: fileItem.name });
+        setPreviewVisible(true);
+
       } else {
-        Alert.alert("Error", "Sharing/Viewing is not available on this device");
+        const safeName = fileItem.name.replace(/\s+/g, '_'); 
+        const fileUri = `${FileSystem.documentDirectory}${safeName}`;
+        await FileSystem.writeAsStringAsync(fileUri, fullFile.content, { encoding: 'base64' });
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(fileUri, { dialogTitle: `View ${fileItem.name}` });
+        } else {
+          Alert.alert("Error", "Viewing is not available on this device");
+        }
       }
 
     } catch (e) {
@@ -310,6 +328,42 @@ const handleUploadFile = async () => {
               <Pressable onPress={async () => { const target = shareWith.trim(); if (!target) return Alert.alert("Error", "Please enter username/email"); try { const id = selectedItem?.id || selectedItem?._id; await shareItem(id, target); setShareOpen(false); setShareWith(""); Alert.alert("Success", `🔗 File shared successfully`); await load(); } catch (e) { Alert.alert("Error", "Failed to share"); } }}><Text style={{ color: "#1a73e8", fontWeight: "600" }}>Share</Text></Pressable>
             </View>
           </View>
+        </View>
+      </Modal>
+
+
+      {/* MODAL FILE PREVIEW */}
+      <Modal visible={previewVisible} animationType="slide" presentationStyle="pageSheet">
+        <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
+          
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#ddd', backgroundColor: 'white', marginTop: 40 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+              {previewData.name}
+            </Text>
+            <Pressable onPress={() => setPreviewVisible(false)}>
+              <Text style={{ color: '#1a73e8', fontSize: 16, fontWeight: '600', padding: 4 }}>Done</Text>
+            </Pressable>
+          </View>
+          
+          {/* Content Area */}
+          <View style={{ flex: 1, backgroundColor: previewData.type === 'image' ? '#000' : '#fff' }}>
+            {previewData.type === 'image' && (
+              <Image 
+                source={{ uri: previewData.content }} 
+                style={{ flex: 1, width: '100%', height: '100%', resizeMode: 'contain' }} 
+              />
+            )}
+            
+            {previewData.type === 'text' && (
+              <ScrollView style={{ flex: 1, padding: 16 }}>
+                <Text style={{ fontSize: 16, color: '#333', textAlign: 'left' }}>
+                  {previewData.content}
+                </Text>
+              </ScrollView>
+            )}
+          </View>
+
         </View>
       </Modal>
 
