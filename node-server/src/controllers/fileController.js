@@ -487,3 +487,67 @@ exports.removeSharedFile = async (req, res) => {
         return res.status(500).json({ error: "Internal server error" });
     }
 };
+
+const fs = require('fs');
+
+// POST /api/files/upload
+exports.uploadFile = async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ error: "Access denied. No token provided." });
+    }
+    
+    let userId;
+    try {
+      const decoded = jwt.verify(token, SECRET_KEY);
+      userId = decoded.id; 
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid token." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file was uploaded." });
+    }
+
+    const { parentId } = req.body;
+    const file = req.file;
+
+    const newFile = new FileModel({
+      name: file.originalname, 
+      type: 'file',
+      parentId: parentId || null,
+      ownerId: userId,
+      permissions: [],
+      mime: file.mimetype,
+      size: file.size,
+    });
+
+    const fileId = newFile._id.toString();
+
+    const fileBuffer = fs.readFileSync(file.path);
+    const base64Content = fileBuffer.toString('base64');
+    
+    const client = new TcpClient(CPP_PORT, CPP_HOST);
+    try {
+      await client.send(`POST ${fileId} ${base64Content}`);
+    } catch (cppError) {
+      console.error("Failed to save to C++:", cppError);
+      return res.status(500).json({ error: "Failed to create file on storage server" });
+    }
+
+    await newFile.save();
+    fs.unlinkSync(file.path);
+
+    res.status(201).json({ 
+      message: "File uploaded successfully",
+      file: newFile 
+    });
+
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ error: "Internal server error during upload" });
+  }
+};
