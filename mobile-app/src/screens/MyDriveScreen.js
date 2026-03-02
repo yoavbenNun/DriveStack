@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Alert, ActivityIndicator, FlatList, RefreshControl, Text, View, Pressable, TextInput, Modal, TouchableOpacity, StyleSheet, Image, ScrollView } from "react-native";
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker'; 
-import { getFiles, createFolder, renameItem, deleteItem, toggleStar, shareItem, uploadFile, getFileById } from "../services/api";
+import { getFiles, createFolder, renameItem, deleteItem, toggleStar, shareItem, uploadFile, getFileById ,searchFiles} from "../services/api";
 import FileActionsSheet from "../components/FileActionsSheet";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -25,7 +25,10 @@ export default function MyDriveScreen() {
   const [shareWith, setShareWith] = useState("");
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewData, setPreviewData] = useState({ type: null, content: null, name: '' });
-  
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
  const load = useCallback(async () => {
@@ -49,6 +52,27 @@ export default function MyDriveScreen() {
       load();
     }, [load])
   );
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    const handler = setTimeout(async () => {
+      try {
+        const data = await searchFiles(query);
+        setResults(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [query]);
 
   const enterFolder = (folder) => {
     const fid = folder.id || folder._id;
@@ -182,7 +206,7 @@ const handleUploadFile = async () => {
   // -------------------------
 
   const title = stack.length ? `My Drive / ${stack.map(s => s.name).join(" / ")}` : "My Drive";
-
+  const dataToRender = query.trim() ? results : items;
   const renderItem = ({ item }) => {
     const isFolder = item.type === "folder";
 
@@ -225,33 +249,73 @@ const handleUploadFile = async () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <View style={{ padding: 14, borderBottomWidth: 1, borderColor: "#eee" }}>
-        <Text style={{ fontSize: 18, fontWeight: "600" }}>{title}</Text>
-
-        {stack.length > 0 && (
-          <Pressable onPress={goBack} style={{ marginTop: 8 }}>
-            <Text style={{ color: "#1a73e8" }}>← Back</Text>
-          </Pressable>
-        )}
+      <View style={{ paddingTop: 10, paddingBottom: 10, borderBottomWidth: 1, borderColor: "#eee" }}>
         
-        {error ? <Text style={{ color: "crimson", marginTop: 8 }}>{error}</Text> : null}
+        <View style={{ paddingHorizontal: 14 }}>
+          <Text style={{ fontSize: 20, fontWeight: "600" }}>
+            {stack.length ? stack[stack.length - 1].name : "My Drive"}
+          </Text>
+
+          {stack.length > 0 && (
+            <Pressable onPress={goBack} style={{ marginTop: 6 }}>
+              <Text style={{ color: "#1a73e8" }}>← Back</Text>
+            </Pressable>
+          )}
+
+          {error ? (
+            <Text style={{ color: "crimson", marginTop: 6 }}>{error}</Text>
+          ) : null}
+        </View>
+
+        {/* SEARCH BAR */}
+        <View style={styles.searchContainer}>
+          <Text style={{ fontSize: 18, color: "#5f6368" }}>🔍</Text>
+
+          <TextInput
+            placeholder="Search in Drive"
+            value={query}
+            onChangeText={setQuery}
+            style={styles.searchInput}
+            autoCapitalize="none"
+          />
+
+          {!!query.trim() && (
+            <Pressable onPress={() => setQuery("")}>
+              <Text style={{ fontSize: 18, color: "#5f6368" }}>✕</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={(it) => String(it.id || it._id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
-        }
-        ListEmptyComponent={
-          <View style={{ padding: 16 }}>
-            <Text style={{ opacity: 0.7 }}>No files</Text>
-          </View>
-        }
-      />
-
+      {/* FILE LIST */}
+        <FlatList
+          data={query.trim() ? results : items}
+          keyExtractor={(it) => String(it.id || it._id)}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => (
+            <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load();
+              }}
+            />
+          }
+          ListEmptyComponent={
+            <View style={{ padding: 16 }}>
+              {isSearching ? (
+                <ActivityIndicator />
+              ) : (
+                <Text style={{ opacity: 0.7 }}>
+                  {query.trim() ? "No results found" : "No files"}
+                </Text>
+              )}
+            </View>
+          }
+        />
 
       <TouchableOpacity style={styles.fab} onPress={() => setFabMenuOpen(true)}>
         <Text style={styles.fabText}>+</Text>
@@ -435,5 +499,20 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 14,
     color: '#444',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f3f4',
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    height: 44,
+    margin: 12,
+  },
+
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
   },
 });
