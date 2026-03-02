@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://192.168.1.69:3000/api';
+const BASE_URL = 'http://192.168.1.113:3000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -124,5 +124,24 @@ export async function deletePermanently(id) {
 
 export async function searchFiles(query) {
   const res = await api.get(`/search/${encodeURIComponent(query)}`);
+  return res.data;
+}
+
+// Get user by ID
+export async function getUserById(id) {
+  const res = await api.get(`/users/${id}`);
+  return res.data;
+}
+
+// Update profile image (expects base64)
+export async function updateUserImage(userId, base64Image) {
+  const formattedImage = `data:image/jpeg;base64,${base64Image}`;
+  const res = await api.patch(`/users/${userId}/image`, { image: formattedImage });
+  return res.data;
+}
+
+// Delete profile image
+export async function deleteUserImage(userId) {
+  const res = await api.delete(`/users/${userId}/image`);
   return res.data;
 }

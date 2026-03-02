@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { jwtDecode } from 'jwt-decode';
 import api from '../services/api';
 
 export default function LoginScreen({ navigation, setUserToken }) {
@@ -36,6 +37,24 @@ export default function LoginScreen({ navigation, setUserToken }) {
 
     await AsyncStorage.setItem('userToken', token);
     console.log("Token saved successfully:", token);
+    try {
+      let extractedId = response.data.userId || response.data.user?._id || response.data.user?.id;
+
+      if (!extractedId) {
+        const decoded = jwtDecode(token);
+        extractedId = decoded.userId || decoded._id || decoded.id; 
+      }
+
+      if (extractedId) {
+        await AsyncStorage.setItem('userId', String(extractedId));
+        console.log("User ID saved successfully:", extractedId);
+      } else {
+        console.warn("Could not find User ID in response or token");
+      }
+    } catch (decodeErr) {
+        console.error("Error extracting user ID:", decodeErr);
+    }
+      
     setUserToken(token);
 
   } catch (error) {

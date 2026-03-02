@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from 'react-native';
+import { Button, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -11,6 +11,7 @@ import MyDriveScreen from '../screens/MyDriveScreen';
 import StarredScreen from '../screens/StarredScreen';
 import SharedScreen from '../screens/SharedScreen';
 import TrashScreen from '../screens/TrashScreen';
+import ProfileWidget from '../components/ProfileWidget';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -20,6 +21,7 @@ const MainTabs = ({ setUserToken }) => {
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userId');
       setUserToken(null); 
     } catch (e) {
       console.error('Failed to logout', e);
@@ -40,7 +42,9 @@ const MainTabs = ({ setUserToken }) => {
         tabBarActiveTintColor: '#1a73e8',
         tabBarInactiveTintColor: 'gray',
         headerRight: () => (
-          <Button onPress={handleLogout} title="Logout" color="#ff3b30" />
+          <View style={{ marginRight: 10 }}>
+            <ProfileWidget onLogout={handleLogout} />
+          </View>
         ),
       })}
     >
