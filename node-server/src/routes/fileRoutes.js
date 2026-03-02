@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const fileController = require('../controllers/fileController');
 const permissionsController = require('../controllers/permissions.controller');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 
+router.post('/files/upload', upload.single('file'), fileController.uploadFile);
 router.post('/files', fileController.createFileOrDir); 
 router.post('/files/:id/permissions', permissionsController.addPermission);
 
@@ -25,5 +28,4 @@ router.patch("/files/:id/star", fileController.setStarred);
 router.patch("/files/:id/trash", fileController.setTrashed);
 router.patch("/files/:id/permissions", fileController.replacePermissions);
 
-router.get('/search/:query', fileController.searchFiles);
 module.exports = router;

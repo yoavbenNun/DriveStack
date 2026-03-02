@@ -1,7 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://10.0.2.2:3000/api';
+const BASE_URL = 'http://192.168.1.113:3000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -76,5 +76,28 @@ export async function shareItem(id, shareWith) {
 // Toggle star
 export async function toggleStar(id, starred) {
   const res = await api.patch(`/files/${id}/star`, { starred });
+  return res.data;
+}
+
+// Upload File (Document or Photo)
+export async function uploadFile(file, parentId = null) {
+  const formData = new FormData();
+  
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name || file.fileName || `file_${Date.now()}`,
+    type: file.mimeType || file.type || 'application/octet-stream',
+  });
+
+  if (parentId) {
+    formData.append('parentId', parentId);
+  }
+
+  const res = await api.post('/files/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  
   return res.data;
 }
