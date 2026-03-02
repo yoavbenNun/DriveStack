@@ -24,7 +24,8 @@ export default function StarredScreen() {
   const load = useCallback(async () => {
     try {
       const data = await getFiles(null, { starred: true }); 
-      setItems(Array.isArray(data) ? data : []);
+      const filtered = data.filter(item => item.trashed !== true);
+      setItems(filtered);
     } catch (e) {
       console.log("FILES ERR:", e?.message);
     } finally {

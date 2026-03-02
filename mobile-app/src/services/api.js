@@ -64,12 +64,6 @@ export async function renameItem(id, name) {
   return res.data;
 }
 
-// Delete (to trash / delete)
-export async function deleteItem(id) {
-  const res = await api.delete(`/files/${id}`);
-  return res.data;
-}
-
 // Share 
 export async function shareItem(id, shareWith) {
   const res = await api.post(`/files/${id}/permissions`, { email: shareWith });
@@ -107,5 +101,23 @@ export async function uploadFile(file, parentId = null) {
 
 export async function removeSharedAccess(id) {
   const res = await api.delete(`/files/${id}/shared`);
+  return res.data;
+}
+
+// Restore file from trash
+export async function restoreItem(id) {
+  const res = await api.patch(`/files/${id}/trash`, { trashed: false }); 
+  return res.data;
+}
+
+// Soft Delete (move to trash)
+export async function deleteItem(id) {
+  const res = await api.patch(`/files/${id}/trash`, { trashed: true });
+  return res.data;
+}
+
+// Delete permanently
+export async function deletePermanently(id) {
+  const res = await api.delete(`/files/${id}`); 
   return res.data;
 }

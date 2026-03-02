@@ -10,6 +10,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import MyDriveScreen from '../screens/MyDriveScreen'; 
 import StarredScreen from '../screens/StarredScreen';
 import SharedScreen from '../screens/SharedScreen';
+import TrashScreen from '../screens/TrashScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -46,6 +47,10 @@ const MainTabs = ({ setUserToken }) => {
       <Tab.Screen name="MyDrive" component={MyDriveScreen} options={{ title: 'My Drive' }} />
       <Tab.Screen name="Starred" component={StarredScreen} options={{ title: 'Starred' }} />
       <Tab.Screen name="Shared" component={SharedScreen} options={{ title: 'Shared' }} />
+      <Tab.Screen name="Trash" component={TrashScreen} options={{ title: 'Trash', tabBarIcon: ({ color, size }) => ( <MaterialIcons name="delete-outline" size={size} color={color} />
+    )
+  }} 
+/>
     </Tab.Navigator>
   );
 };
