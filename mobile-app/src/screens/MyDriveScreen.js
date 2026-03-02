@@ -31,27 +31,42 @@ export default function MyDriveScreen() {
 
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
- const load = useCallback(async () => {
+const load = useCallback(async () => {
+    setError("");
     try {
-      const data = await getFiles(); 
-      const filtered = Array.isArray(data) 
-        ? data.filter(item => item.trashed !== true) 
-        : [];
+      const data = await getFiles(null);
+      const all = Array.isArray(data) ? data : [];
+      const getParent = (x) => x.parentId ?? x.parent ?? null;
+      
+      const notTrashed = all.filter(x => x.trashed !== true);
+
+      const filtered = parentId 
+        ? notTrashed.filter((x) => getParent(x) === parentId) 
+        : notTrashed.filter((x) => getParent(x) == null);
         
       setItems(filtered);
     } catch (e) {
-      console.log("FILES ERR:", e?.message);
+      console.log("FILES ERR:", e?.response?.status, e?.response?.data || e?.message);
+      setError("Failed to load files");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [parentId]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
   );
+
+  const enterFolder = (folder) => {
+    const fid = folder.id || folder._id;
+    setStack((prev) => [...prev, { id: fid, name: folder.name }]);
+    setParentId(fid);
+  };
+
+
 
   useEffect(() => {
     if (!query.trim()) {
@@ -73,12 +88,6 @@ export default function MyDriveScreen() {
 
     return () => clearTimeout(handler);
   }, [query]);
-
-  const enterFolder = (folder) => {
-    const fid = folder.id || folder._id;
-    setStack((prev) => [...prev, { id: fid, name: folder.name }]);
-    setParentId(fid);
-  };
 
   const goBack = () => {
     setStack((prev) => {
