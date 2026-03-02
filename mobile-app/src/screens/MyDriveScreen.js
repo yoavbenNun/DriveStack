@@ -6,6 +6,7 @@ import { getFiles, createFolder, renameItem, deleteItem, toggleStar, shareItem, 
 import FileActionsSheet from "../components/FileActionsSheet";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function MyDriveScreen() {
   const [parentId, setParentId] = useState(null);
@@ -44,10 +45,11 @@ export default function MyDriveScreen() {
     }
   }, [parentId]);
 
-  useEffect(() => {
-    setLoading(true);
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const enterFolder = (folder) => {
     const fid = folder.id || folder._id;

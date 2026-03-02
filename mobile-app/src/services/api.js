@@ -33,9 +33,12 @@ api.interceptors.request.use(
 
 export default api;
 
-export async function getFiles(parentId = null) {
-  //  filter by parentId
-  const res = await api.get('/files', { params: parentId ? { parentId } : {} });
+export async function getFiles(parentId = null, extraParams = {}) {
+  const params = { ...extraParams };
+  if (parentId) {
+    params.parentId = parentId;
+  }
+  const res = await api.get('/files', { params });
   return res.data;
 }
 
@@ -69,7 +72,7 @@ export async function deleteItem(id) {
 
 // Share 
 export async function shareItem(id, shareWith) {
-  const res = await api.post(`/files/${id}/share`, { shareWith });
+  const res = await api.post(`/files/${id}/permissions`, { email: shareWith });
   return res.data;
 }
 
@@ -99,5 +102,10 @@ export async function uploadFile(file, parentId = null) {
     },
   });
   
+  return res.data;
+}
+
+export async function removeSharedAccess(id) {
+  const res = await api.delete(`/files/${id}/shared`);
   return res.data;
 }
