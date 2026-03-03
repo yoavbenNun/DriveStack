@@ -4,17 +4,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getFiles, renameItem, deleteItem, toggleStar, shareItem, getFileById } from "../services/api";
 import FileActionsSheet from "../components/FileActionsSheet";
-import TopBar from "../components/TopBar"; // 🚀 הייבוא של הקומפוננטה החדשה
+import TopBar from "../components/TopBar"; 
 import { useFocusEffect } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons'; // 🚀 הייבוא של האייקונים
+import { MaterialIcons } from '@expo/vector-icons';
 
-// 🚀 חשוב: אנחנו צריכים לקבל את onLogout כדי להעביר אותו ל-TopBar
 export default function StarredScreen({ onLogout }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // 🚀 סטייט לחיפוש המקומי בתוך ה-TopBar
   const [query, setQuery] = useState('');
   
   const [actionOpen, setActionOpen] = useState(false);
@@ -47,58 +45,79 @@ export default function StarredScreen({ onLogout }) {
   );
 
   const handleOpenFile = async (fileItem) => {
-    try {
-      Alert.alert("Loading...", `Opening ${fileItem.name}`);
-      const fileId = fileItem.id || fileItem._id;
-      const fullFile = await getFileById(fileId);
-      
-      if (!fullFile.content) {
-        Alert.alert("Error", "File is empty or corrupted on the server.");
-        return;
-      }
-
-      const mime = String(fullFile.mime || '').toLowerCase();
-      const name = String(fileItem.name || '').toLowerCase();
-      
-      const isImage = mime.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
-      const isText = mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.js') || name.endsWith('.json') || name.endsWith('.html');
-
-      if (isImage) {
-        const imageUri = `data:${fullFile.mime || 'image/jpeg'};base64,${fullFile.content}`;
-        setPreviewData({ type: 'image', content: imageUri, name: fileItem.name });
-        setPreviewVisible(true);
-      } else if (isText) {
-        const safeName = fileItem.name.replace(/\s+/g, '_'); 
-        const fileUri = `${FileSystem.documentDirectory}${safeName}`;
-        await FileSystem.writeAsStringAsync(fileUri, fullFile.content, { encoding: 'base64' });
-        const textContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
+      try {
+        const fileId = fileItem._id || fileItem.id;
+        if (!fileId) return Alert.alert("Error", "Missing file ID");
+  
+        console.log("Loading...", `Opening ${fileItem.name}`);
+        const fullFile = await getFileById(fileId);
         
-        setPreviewData({ type: 'text', content: textContent, name: fileItem.name });
-        setPreviewVisible(true);
-      } else {
-        const safeName = fileItem.name.replace(/\s+/g, '_'); 
-        const fileUri = `${FileSystem.documentDirectory}${safeName}`;
-        await FileSystem.writeAsStringAsync(fileUri, fullFile.content, { encoding: 'base64' });
-
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(fileUri, { dialogTitle: `View ${fileItem.name}` });
-        } else {
-          Alert.alert("Error", "Viewing is not available on this device");
+        if (!fullFile || !fullFile.content) {
+          return Alert.alert("Error", "The server returned no content.");
         }
+  
+        let cleanContent = fullFile.content.trim();
+        
+        if (cleanContent.toLowerCase().startsWith("404")) {
+          return Alert.alert("Error", "File not found on storage server.");
+        }
+        
+        if (cleanContent.toLowerCase().startsWith("200 ok")) {
+          cleanContent = cleanContent.substring(6).trim();
+        }
+  
+        const mime = (fullFile.mime || "").toLowerCase();
+        const name = (fileItem.name || "").toLowerCase();
+        
+        const isImage = mime.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+        const isText = mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.js') || name.endsWith('.json');
+  
+        if (isImage) {
+          const imageUri = cleanContent.startsWith('data:') 
+            ? cleanContent 
+            : `data:${mime || 'image/jpeg'};base64,${cleanContent}`;
+          
+          setPreviewData({ type: 'image', content: imageUri, name: fileItem.name });
+          setPreviewVisible(true);
+        } 
+        else if (isText) {
+          try {
+            const tempUri = `${FileSystem.documentDirectory}temp.txt`;
+            await FileSystem.writeAsStringAsync(tempUri, cleanContent, { encoding: 'base64' });
+            const textContent = await FileSystem.readAsStringAsync(tempUri, { encoding: 'utf8' });
+            setPreviewData({ type: 'text', content: textContent, name: fileItem.name });
+            setPreviewVisible(true);
+          } catch (e) {
+            setPreviewData({ type: 'text', content: cleanContent, name: fileItem.name });
+            setPreviewVisible(true);
+          }
+        } 
+        else {
+          const safeName = fileItem.name.replace(/\s+/g, '_');
+          const fileUri = `${FileSystem.documentDirectory}${safeName}`;
+          
+          await FileSystem.writeAsStringAsync(fileUri, cleanContent, { encoding: 'base64' });
+  
+          const canShare = await Sharing.isAvailableAsync();
+          if (canShare) {
+            await Sharing.shareAsync(fileUri, { 
+              mimeType: mime, 
+              dialogTitle: `Open ${fileItem.name}`
+            });
+          } else {
+            Alert.alert("Error", "No app available to open this file type.");
+          }
+        }
+      } catch (e) {
+        console.error("Open Error:", e.message);
+        Alert.alert("Error", "Failed to open file.");
       }
-    } catch (e) {
-      console.error("Error opening file:", e);
-      Alert.alert("Error", "Failed to open the file.");
-    }
-  };
+    };
 
-  // 🚀 סינון מקומי - אם המשתמש הקליד בחיפוש, נסנן את רשימת המועדפים
   const dataToRender = query.trim() 
     ? items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
     : items;
 
-  // 🚀 עיצוב הפריטים בדיוק כמו ב-MyDrive
   const renderItem = ({ item }) => {
     const isFolder = item.type === "folder";
     const dateStr = item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'Modified recently';
@@ -121,7 +140,6 @@ export default function StarredScreen({ onLogout }) {
             </View>
           </View>
 
-          {/* מציג כוכב תמיד כי אנחנו במסך מועדפים! */}
           <MaterialIcons name="star" size={18} color="#f4b400" />
         </Pressable>
 
@@ -132,7 +150,6 @@ export default function StarredScreen({ onLogout }) {
           }}
           style={{ padding: 12 }}
         >
-          {/* 🚀 3 נקודות שוכבות */}
           <MaterialIcons name="more-horiz" size={24} color="#5f6368" />
         </Pressable>
       </View>
@@ -150,7 +167,6 @@ export default function StarredScreen({ onLogout }) {
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
       
-      {/* 🚀 ה-TopBar שלנו! */}
       <TopBar query={query} setQuery={setQuery} onLogout={onLogout} />
 
       <View style={{ flex: 1, backgroundColor: 'white' }}>
@@ -198,7 +214,6 @@ export default function StarredScreen({ onLogout }) {
         }} 
       />
 
-      {/* שאר המודלים (Preview, Rename, Share)... */}
       <Modal visible={previewVisible} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#ddd', backgroundColor: 'white', marginTop: 40 }}>
