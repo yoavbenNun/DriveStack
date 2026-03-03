@@ -21,7 +21,7 @@ const MainTabs = ({ setUserToken }) => {
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem('userToken');
-      await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('userId'); 
       setUserToken(null); 
     } catch (e) {
       console.error('Failed to logout', e);
@@ -31,30 +31,32 @@ const MainTabs = ({ setUserToken }) => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        headerShown: false,
         tabBarIcon: ({ color, size }) => {
           let iconName;
           if (route.name === 'MyDrive') iconName = 'folder';
           else if (route.name === 'Starred') iconName = 'star';
           else if (route.name === 'Shared') iconName = 'folder-shared';
+          else if (route.name === 'Trash') iconName = 'delete-outline';
           
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#1a73e8',
         tabBarInactiveTintColor: 'gray',
-        headerRight: () => (
-          <View style={{ marginRight: 10 }}>
-            <ProfileWidget onLogout={handleLogout} />
-          </View>
-        ),
       })}
     >
-      <Tab.Screen name="MyDrive" component={MyDriveScreen} options={{ title: 'My Drive' }} />
-      <Tab.Screen name="Starred" component={StarredScreen} options={{ title: 'Starred' }} />
-      <Tab.Screen name="Shared" component={SharedScreen} options={{ title: 'Shared' }} />
-      <Tab.Screen name="Trash" component={TrashScreen} options={{ title: 'Trash', tabBarIcon: ({ color, size }) => ( <MaterialIcons name="delete-outline" size={size} color={color} />
-    )
-  }} 
-/>
+      <Tab.Screen name="MyDrive" options={{ title: 'My Drive' }}>
+        {props => <MyDriveScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
+      <Tab.Screen name="Starred" options={{ title: 'Starred' }}>
+        {props => <StarredScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
+      <Tab.Screen name="Shared" options={{ title: 'Shared' }}>
+        {props => <SharedScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
+      <Tab.Screen name="Trash" options={{ title: 'Trash' }}>
+      {props => <TrashScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 };

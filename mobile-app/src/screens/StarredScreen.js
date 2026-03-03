@@ -1,15 +1,21 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, ActivityIndicator, FlatList, RefreshControl, Text, View, Pressable, TextInput, Modal, Image, ScrollView } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getFiles, renameItem, deleteItem, toggleStar, shareItem, getFileById } from "../services/api";
 import FileActionsSheet from "../components/FileActionsSheet";
+import TopBar from "../components/TopBar"; // 🚀 הייבוא של הקומפוננטה החדשה
 import { useFocusEffect } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons'; // 🚀 הייבוא של האייקונים
 
-export default function StarredScreen() {
+// 🚀 חשוב: אנחנו צריכים לקבל את onLogout כדי להעביר אותו ל-TopBar
+export default function StarredScreen({ onLogout }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // 🚀 סטייט לחיפוש המקומי בתוך ה-TopBar
+  const [query, setQuery] = useState('');
   
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -87,20 +93,36 @@ export default function StarredScreen() {
     }
   };
 
+  // 🚀 סינון מקומי - אם המשתמש הקליד בחיפוש, נסנן את רשימת המועדפים
+  const dataToRender = query.trim() 
+    ? items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+    : items;
+
+  // 🚀 עיצוב הפריטים בדיוק כמו ב-MyDrive
   const renderItem = ({ item }) => {
     const isFolder = item.type === "folder";
+    const dateStr = item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'Modified recently';
 
     return (
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 16 }}>
         <Pressable
           onPress={() => (isFolder ? Alert.alert("Notice", "Please go to My Drive to browse inside folders.") : handleOpenFile(item))}
-          style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 14 }}
+          style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 16 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={{ fontSize: 18 }}>{isFolder ? "📁" : "📄"}</Text>
-            <Text style={{ fontSize: 16 }} numberOfLines={1}>{item.name}</Text>
-            {item.starred ? <Text style={{ marginLeft: 6 }}>⭐</Text> : null}
+          <MaterialIcons name={isFolder ? "folder" : "insert-drive-file"} size={28} color={isFolder ? "#5f6368" : "#4285f4"} />
+
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, color: '#1f1f1f', fontWeight: '400', marginBottom: 2 }} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {item.shared && <MaterialIcons name="people-alt" size={12} color="#5f6368" />}
+              <Text style={{ fontSize: 13, color: '#5f6368' }}>{dateStr}</Text>
+            </View>
           </View>
+
+          {/* מציג כוכב תמיד כי אנחנו במסך מועדפים! */}
+          <MaterialIcons name="star" size={18} color="#f4b400" />
         </Pressable>
 
         <Pressable
@@ -108,9 +130,10 @@ export default function StarredScreen() {
             setSelectedItem(item);
             setActionOpen(true);
           }}
-          style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+          style={{ padding: 12 }}
         >
-          <Text style={{ fontSize: 18 }}>⋮</Text>
+          {/* 🚀 3 נקודות שוכבות */}
+          <MaterialIcons name="more-horiz" size={24} color="#5f6368" />
         </Pressable>
       </View>
     );
@@ -119,21 +142,34 @@ export default function StarredScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1a73e8" />
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <FlatList
-        data={items}
-        keyExtractor={(it) => String(it.id || it._id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
-        ListEmptyComponent={<View style={{ padding: 16 }}><Text style={{ opacity: 0.7 }}>No starred files</Text></View>}
-      />
+      
+      {/* 🚀 ה-TopBar שלנו! */}
+      <TopBar query={query} setQuery={setQuery} onLogout={onLogout} />
+
+      <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <FlatList
+          data={dataToRender}
+          keyExtractor={(it) => String(it.id || it._id)}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+          ListEmptyComponent={
+            <View style={{ padding: 16 }}>
+              <Text style={{ opacity: 0.7, textAlign: 'center', marginTop: 20 }}>
+                {query.trim() ? "No results found" : "No starred files"}
+              </Text>
+            </View>
+          }
+        />
+      </View>
 
       <FileActionsSheet 
         visible={actionOpen} 
@@ -162,6 +198,7 @@ export default function StarredScreen() {
         }} 
       />
 
+      {/* שאר המודלים (Preview, Rename, Share)... */}
       <Modal visible={previewVisible} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#ddd', backgroundColor: 'white', marginTop: 40 }}>

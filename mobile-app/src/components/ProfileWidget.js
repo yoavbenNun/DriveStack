@@ -13,11 +13,9 @@ export default function ProfileWidget({ onLogout }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // משיכת פרטי המשתמש בטעינה
   useEffect(() => {
     async function loadUser() {
       try {
-        // מנסים לשלוף את ה-ID מהאחסון המקומי
         const storedUserId = await AsyncStorage.getItem('userId');
         
         if (storedUserId) {
@@ -42,20 +40,18 @@ export default function ProfileWidget({ onLogout }) {
     const userId = user.id || user._id;
 
     try {
-      // בקשת הרשאות לגלריה
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
         Alert.alert('Permission Required', 'Please allow access to your photo library.');
         return;
       }
 
-      // פתיחת הגלריה. שימנו לב ל-base64: true!
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
-        base64: true, // קריטי כדי שנוכל לשלוח לשרת כמו ב-Web
+        base64: true, 
       });
 
       if (!result.canceled && result.assets[0].base64) {
@@ -104,12 +100,11 @@ export default function ProfileWidget({ onLogout }) {
 
   return (
     <View>
-      {/* העיגול הקטן בהאדר */}
       <Pressable onPress={() => setModalVisible(true)} style={styles.headerAvatarContainer}>
         <Image source={avatarSrc} style={styles.headerAvatar} />
       </Pressable>
 
-      {/* המודל (Popover) שנפתח */}
+      
       <Modal visible={modalVisible} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
           <Pressable style={styles.popoverCard} onPress={() => {}}>
@@ -154,10 +149,10 @@ export default function ProfileWidget({ onLogout }) {
 
 const styles = StyleSheet.create({
   headerAvatarContainer: {
-    marginRight: 16,
+    marginRight: 0,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#1120ec',
     overflow: 'hidden',
   },
   headerAvatar: {

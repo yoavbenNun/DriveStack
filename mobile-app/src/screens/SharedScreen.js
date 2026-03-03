@@ -5,11 +5,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getFiles, renameItem, deleteItem, toggleStar, shareItem, getFileById, removeSharedAccess } from "../services/api";
 import FileActionsSheet from "../components/FileActionsSheet";
+import TopBar from "../components/TopBar"; 
+import { MaterialIcons } from '@expo/vector-icons'; 
 
-export default function SharedScreen() {
+export default function SharedScreen({ onLogout }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [query, setQuery] = useState('');
   
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -86,21 +90,33 @@ export default function SharedScreen() {
     }
   };
 
+  const dataToRender = query.trim() 
+    ? items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+    : items;
+
   const renderItem = ({ item }) => {
     const isFolder = item.type === "folder";
+    const dateStr = item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'Shared with you';
 
     return (
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 16 }}>
         <Pressable
           onPress={() => (isFolder ? Alert.alert("Notice", "Please go to My Drive to browse inside folders.") : handleOpenFile(item))}
-          style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 14 }}
+          style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 16 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={{ fontSize: 18 }}>{isFolder ? "📁" : "📄"}</Text>
-            <Text style={{ fontSize: 16 }} numberOfLines={1}>{item.name}</Text>
-            <Text style={{ marginLeft: 6, fontSize: 12, color: 'gray' }}>(Shared)</Text>
-            {item.starred ? <Text style={{ marginLeft: 6 }}>⭐</Text> : null}
+          <MaterialIcons name={isFolder ? "folder" : "insert-drive-file"} size={28} color={isFolder ? "#5f6368" : "#4285f4"} />
+
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, color: '#1f1f1f', fontWeight: '400', marginBottom: 2 }} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <MaterialIcons name="people-alt" size={12} color="#5f6368" />
+              <Text style={{ fontSize: 13, color: '#5f6368' }}>{dateStr}</Text>
+            </View>
           </View>
+
+          {item.starred ? <MaterialIcons name="star" size={18} color="#f4b400" /> : null}
         </Pressable>
 
         <Pressable
@@ -108,9 +124,9 @@ export default function SharedScreen() {
             setSelectedItem(item);
             setActionOpen(true);
           }}
-          style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+          style={{ padding: 12 }}
         >
-          <Text style={{ fontSize: 18 }}>⋮</Text>
+          <MaterialIcons name="more-horiz" size={24} color="#5f6368" />
         </Pressable>
       </View>
     );
@@ -119,21 +135,33 @@ export default function SharedScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1a73e8" />
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <FlatList
-        data={items}
-        keyExtractor={(it) => String(it.id || it._id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
-        ListEmptyComponent={<View style={{ padding: 16 }}><Text style={{ opacity: 0.7 }}>No shared files</Text></View>}
-      />
+      
+      <TopBar query={query} setQuery={setQuery} onLogout={onLogout} />
+
+      <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <FlatList
+          data={dataToRender}
+          keyExtractor={(it) => String(it.id || it._id)}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+          ListEmptyComponent={
+            <View style={{ padding: 16 }}>
+              <Text style={{ opacity: 0.7, textAlign: 'center', marginTop: 20 }}>
+                {query.trim() ? "No results found" : "No shared files"}
+              </Text>
+            </View>
+          }
+        />
+      </View>
 
       <FileActionsSheet 
         visible={actionOpen} 
@@ -161,13 +189,10 @@ export default function SharedScreen() {
                 }]
             );
         }}
-
         onRename={() => {}} 
         onDelete={() => {}} 
         onShare={() => { setActionOpen(false); setTimeout(() => { setShareWith(""); setShareOpen(true); }, 200); }} 
         onToggleStar={() => {}}
-        
-          
       />
 
       <Modal visible={previewVisible} animationType="slide" presentationStyle="pageSheet">
