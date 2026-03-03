@@ -13,6 +13,10 @@ export default function RegisterScreen({ navigation }) {
   });
   const [profileImage, setProfileImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
 
   const takePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -65,7 +69,39 @@ export default function RegisterScreen({ navigation }) {
     );
   };
 
+  const validateForm = () => {
+    let isValid = true;
+
+    const { email, password } = formData;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address.');
+      isValid = false;
+    } else {
+      setEmailError('');
+    }
+
+    const passwordRegex = /^(?=.*[A-Z]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setPasswordError('Password must be at least 8 characters and contain 1 uppercase letter.');
+      isValid = false;
+    } else {
+      setPasswordError('');
+    }
+
+    if (password !== confirmPassword) {
+      setConfirmError('Passwords do not match.');
+      isValid = false;
+    } else {
+      setConfirmError('');
+    }
+
+    return isValid;
+  };
+
   const handleRegister = async () => {
+    if (!validateForm()) return;
     const { username, password, name, email } = formData;
 
     if (!username || !password || !email || !name) {
@@ -152,7 +188,7 @@ export default function RegisterScreen({ navigation }) {
             />
           </View>
 
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, emailError ? { borderBottomWidth: 1, borderBottomColor: 'red' } : null]}>
             <MaterialIcons name="email" size={20} color="#5f6368" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
@@ -164,6 +200,7 @@ export default function RegisterScreen({ navigation }) {
               autoCapitalize="none"
             />
           </View>
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
           <View style={styles.inputContainer}>
             <MaterialIcons name="person-outline" size={20} color="#5f6368" style={styles.inputIcon} />
@@ -177,7 +214,7 @@ export default function RegisterScreen({ navigation }) {
             />
           </View>
           
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, passwordError ? { borderBottomWidth: 1, borderBottomColor: 'red' } : null]}>
             <MaterialIcons name="lock-outline" size={20} color="#5f6368" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
@@ -188,6 +225,20 @@ export default function RegisterScreen({ navigation }) {
               secureTextEntry
             />
           </View>
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+          <View style={[styles.inputContainer, confirmError ? { borderBottomWidth: 1, borderBottomColor: 'red' } : null]}>
+            <MaterialIcons name="lock-reset" size={20} color="#5f6368" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirm Password"
+              placeholderTextColor="#5f6368"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+          </View>
+          {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
           
           {isLoading ? (
             <View style={styles.loadingContainer}>
