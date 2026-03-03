@@ -15,38 +15,38 @@ export default function ProfileWidget({ onLogout }) {
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
-    useCallback(() => {
-      async function loadUser() {
-        try {
-          if (!user) setLoading(true); 
-          
-          const storedUserId = await AsyncStorage.getItem('userId');
-          
-          if (storedUserId) {
-            const userData = await getUserById(storedUserId);
-            setUser(userData);
-          } else {
-            console.warn("No userId found in AsyncStorage!");
-          }
-        } catch (e) {
-          console.log("Failed to load user info", e?.message);
-          
-          if (e?.response?.status === 404 || e?.response?.status === 401) {
-            Alert.alert("Session Expired", "User not found. Please log in again.");
-            if (onLogout) {
-              onLogout();
-            }
-          }
-        } finally {
-          setLoading(false);
+  useCallback(() => {
+    async function loadUser() {
+      try {
+        const storedUserId = await AsyncStorage.getItem('userId');
+        if (storedUserId) {
+          const userData = await getUserById(storedUserId);
+          setUser(userData);
         }
+      } catch (e) {
+        console.log("Failed to load user info", e?.message);
+      } finally {
+        setLoading(false);
       }
+    }
+    loadUser();
+  }, [])
+);
 
-      loadUser();
-    }, [user])
-  );
+  const avatarSrc = (() => {
+    if (!user?.image || user.image.trim() === '' || user.image === 'DEFAULT_AVATAR') {
+      return { uri: DEFAULT_AVATAR };
+    }
+  
+    if (user.image.startsWith('http') || user.image.startsWith('data:image')) {
+      return { uri: user.image };
+    }
 
-  const avatarSrc = user?.image && user.image.trim() !== '' ? { uri: user.image } : { uri: DEFAULT_AVATAR };
+    const host = process.env.EXPO_PUBLIC_SERVER_URL
+    const cleanPath = user.image.startsWith('/') ? user.image.substring(1) : user.image;
+
+    return { uri: `${host}/${cleanPath}` };
+  })();
 
   const handleChangePicture = async () => {
     if (!user?.id && !user?._id) return;
@@ -66,6 +66,8 @@ export default function ProfileWidget({ onLogout }) {
         quality: 0.5,
         base64: true, 
       });
+
+      
 
       if (!result.canceled && result.assets[0].base64) {
         setLoading(true);

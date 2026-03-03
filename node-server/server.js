@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./src/config/db');
+const path = require('path');
 
 const userRoutes = require('./src/routes/userRoutes');
 const fileRoutes = require('./src/routes/fileRoutes');
@@ -10,7 +11,7 @@ const PORT = 3000;
 connectDB();
 
 // Middleware
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use('/uploads', express.static('uploads'));

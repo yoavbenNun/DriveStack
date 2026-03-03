@@ -8,7 +8,7 @@ const DEFAULT_AVATAR = "https://upload.wikimedia.org/wikipedia/commons/7/7c/Prof
 exports.register = async (req, res) => {
     const { username, password, name, email } = req.body;
 
-    const imagePath = req.file ? req.file.path : DEFAULT_AVATAR;
+    const imagePath = req.file ? req.file.path.replace(/\\/g, '/') : DEFAULT_AVATAR;
 
     /* for debugging:
     console.log('Req Body:', req.body);
