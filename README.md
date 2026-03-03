@@ -25,12 +25,6 @@ A mobile cloud storage solution (inspired by Google Drive) built with **React Na
   <img src="https://github.com/user-attachments/assets/e8488675-1e8c-402f-93e3-8d39be16a643" width="300" />
   <img src="https://github.com/user-attachments/assets/5766ec74-28ec-44bf-9e5e-e7c13921f782" width="300" />
   <img src="https://github.com/user-attachments/assets/baaf3a11-317b-4568-a04b-bdbbd4e06868" width="300" />
-  <img src="https://github.com/user-attachments/assets/15597ff8-0ee0-4054-8063-f333180579ad" width="300" />
-  <img src="https://github.com/user-attachments/assets/29e02c96-1f63-498d-8507-70a99c1c7bc4" width="300" />
-
-
-
-
 </p>
 
 ---
@@ -60,12 +54,16 @@ A mobile cloud storage solution (inspired by Google Drive) built with **React Na
    ```
    npm install
    ```
-3. **Configure api:**
+3. **Build docker compose:**
+   ```
+   docker-compose up -d --build
+   ```
+4. **Configure api:**
   create `.env` file inside `mobile-app` folder:
-  ```
-  EXPO_PUBLIC_SERVER_URL=http://<YOUR_LOCAL_IP:3000
-  ```
-4. **Run the application:**
+   ```
+    EXPO_PUBLIC_SERVER_URL=http://<YOUR_LOCAL_IP:3000
+   ```
+5. **Run the application:**
    ```
    npx expo start --clear --port 8888
    ```
