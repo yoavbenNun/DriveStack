@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from 'react-native';
+import { Button, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -11,6 +11,7 @@ import MyDriveScreen from '../screens/MyDriveScreen';
 import StarredScreen from '../screens/StarredScreen';
 import SharedScreen from '../screens/SharedScreen';
 import TrashScreen from '../screens/TrashScreen';
+import ProfileWidget from '../components/ProfileWidget';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -20,6 +21,7 @@ const MainTabs = ({ setUserToken }) => {
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userId'); 
       setUserToken(null); 
     } catch (e) {
       console.error('Failed to logout', e);
@@ -29,28 +31,32 @@ const MainTabs = ({ setUserToken }) => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        headerShown: false,
         tabBarIcon: ({ color, size }) => {
           let iconName;
           if (route.name === 'MyDrive') iconName = 'folder';
           else if (route.name === 'Starred') iconName = 'star';
           else if (route.name === 'Shared') iconName = 'folder-shared';
+          else if (route.name === 'Trash') iconName = 'delete-outline';
           
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#1a73e8',
         tabBarInactiveTintColor: 'gray',
-        headerRight: () => (
-          <Button onPress={handleLogout} title="Logout" color="#ff3b30" />
-        ),
       })}
     >
-      <Tab.Screen name="MyDrive" component={MyDriveScreen} options={{ title: 'My Drive' }} />
-      <Tab.Screen name="Starred" component={StarredScreen} options={{ title: 'Starred' }} />
-      <Tab.Screen name="Shared" component={SharedScreen} options={{ title: 'Shared' }} />
-      <Tab.Screen name="Trash" component={TrashScreen} options={{ title: 'Trash', tabBarIcon: ({ color, size }) => ( <MaterialIcons name="delete-outline" size={size} color={color} />
-    )
-  }} 
-/>
+      <Tab.Screen name="MyDrive" options={{ title: 'My Drive' }}>
+        {props => <MyDriveScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
+      <Tab.Screen name="Starred" options={{ title: 'Starred' }}>
+        {props => <StarredScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
+      <Tab.Screen name="Shared" options={{ title: 'Shared' }}>
+        {props => <SharedScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
+      <Tab.Screen name="Trash" options={{ title: 'Trash' }}>
+      {props => <TrashScreen {...props} onLogout={handleLogout} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 };

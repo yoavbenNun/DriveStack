@@ -210,43 +210,36 @@ exports.downloadFile = async (req, res) => {
 };
 
 exports.getFileById = async (req, res) => {
-  const id = req.params.id;
-  const meta = await FileModel.findById(id);
-
-  if (!meta) return res.status(404).json({ error: "File not found" });
-
-  if (meta.type !== "file") {
-    return res.status(200).json({ ...meta.toJSON(), content: null });
-  }
-
-  const client = new TcpClient(CPP_PORT, CPP_HOST);
-
   try {
-    const response = await client.send(`GET ${id}`);
+    const { id } = req.params;
 
-    if (String(response).startsWith("404")) {
+    const fileMetadata = await FileModel.findById(id);
+    if (!fileMetadata) {
+      return res.status(404).json({ error: "File metadata not found in database" });
+    }
+
+    const client = new TcpClient(CPP_PORT, CPP_HOST);
+    let base64Content;
+    
+    try {
+      base64Content = await client.send(`GET ${id}`); 
+    } catch (cppError) {
+      console.error("C++ Storage Error:", cppError);
       return res.status(404).json({ error: "File content not found on storage" });
     }
 
-    const content = extractBodyFromCppResponse(response);
-
-    if (!/^[A-Za-z0-9+/=]*$/.test(content) || content.length < 50) {
-      return res.status(500).json({
-        error: "Corrupted base64 returned from storage",
-        sample: content.slice(0, 60),
-        len: content.length
-      });
-    }
-
-    return res.status(200).json({
-      ...meta.toJSON(),
-      content,
-      encoding: meta.encoding || "base64",
-      mime: meta.mime || "application/octet-stream",
-      size: meta.size ?? null,
+    res.json({
+      _id: fileMetadata._id,
+      name: fileMetadata.name,
+      mime: fileMetadata.mime,
+      type: fileMetadata.type,
+      parentId: fileMetadata.parentId,
+      content: base64Content 
     });
-  } catch (e) {
-    return res.status(500).json({ error: "Storage server error" });
+
+  } catch (error) {
+    console.error("Get file error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 

@@ -1,15 +1,19 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, ActivityIndicator, FlatList, RefreshControl, Text, View, Pressable, TextInput, Modal, Image, ScrollView } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { getFiles, renameItem, deleteItem, toggleStar, shareItem, getFileById } from "../services/api";
 import FileActionsSheet from "../components/FileActionsSheet";
+import TopBar from "../components/TopBar"; 
 import { useFocusEffect } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
 
-export default function StarredScreen() {
+export default function StarredScreen({ onLogout }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [query, setQuery] = useState('');
   
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -41,66 +45,102 @@ export default function StarredScreen() {
   );
 
   const handleOpenFile = async (fileItem) => {
-    try {
-      Alert.alert("Loading...", `Opening ${fileItem.name}`);
-      const fileId = fileItem.id || fileItem._id;
-      const fullFile = await getFileById(fileId);
-      
-      if (!fullFile.content) {
-        Alert.alert("Error", "File is empty or corrupted on the server.");
-        return;
-      }
-
-      const mime = String(fullFile.mime || '').toLowerCase();
-      const name = String(fileItem.name || '').toLowerCase();
-      
-      const isImage = mime.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
-      const isText = mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.js') || name.endsWith('.json') || name.endsWith('.html');
-
-      if (isImage) {
-        const imageUri = `data:${fullFile.mime || 'image/jpeg'};base64,${fullFile.content}`;
-        setPreviewData({ type: 'image', content: imageUri, name: fileItem.name });
-        setPreviewVisible(true);
-      } else if (isText) {
-        const safeName = fileItem.name.replace(/\s+/g, '_'); 
-        const fileUri = `${FileSystem.documentDirectory}${safeName}`;
-        await FileSystem.writeAsStringAsync(fileUri, fullFile.content, { encoding: 'base64' });
-        const textContent = await FileSystem.readAsStringAsync(fileUri, { encoding: 'utf8' });
+      try {
+        const fileId = fileItem._id || fileItem.id;
+        if (!fileId) return Alert.alert("Error", "Missing file ID");
+  
+        console.log("Loading...", `Opening ${fileItem.name}`);
+        const fullFile = await getFileById(fileId);
         
-        setPreviewData({ type: 'text', content: textContent, name: fileItem.name });
-        setPreviewVisible(true);
-      } else {
-        const safeName = fileItem.name.replace(/\s+/g, '_'); 
-        const fileUri = `${FileSystem.documentDirectory}${safeName}`;
-        await FileSystem.writeAsStringAsync(fileUri, fullFile.content, { encoding: 'base64' });
-
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(fileUri, { dialogTitle: `View ${fileItem.name}` });
-        } else {
-          Alert.alert("Error", "Viewing is not available on this device");
+        if (!fullFile || !fullFile.content) {
+          return Alert.alert("Error", "The server returned no content.");
         }
+  
+        let cleanContent = fullFile.content.trim();
+        
+        if (cleanContent.toLowerCase().startsWith("404")) {
+          return Alert.alert("Error", "File not found on storage server.");
+        }
+        
+        if (cleanContent.toLowerCase().startsWith("200 ok")) {
+          cleanContent = cleanContent.substring(6).trim();
+        }
+  
+        const mime = (fullFile.mime || "").toLowerCase();
+        const name = (fileItem.name || "").toLowerCase();
+        
+        const isImage = mime.startsWith('image/') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+        const isText = mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.js') || name.endsWith('.json');
+  
+        if (isImage) {
+          const imageUri = cleanContent.startsWith('data:') 
+            ? cleanContent 
+            : `data:${mime || 'image/jpeg'};base64,${cleanContent}`;
+          
+          setPreviewData({ type: 'image', content: imageUri, name: fileItem.name });
+          setPreviewVisible(true);
+        } 
+        else if (isText) {
+          try {
+            const tempUri = `${FileSystem.documentDirectory}temp.txt`;
+            await FileSystem.writeAsStringAsync(tempUri, cleanContent, { encoding: 'base64' });
+            const textContent = await FileSystem.readAsStringAsync(tempUri, { encoding: 'utf8' });
+            setPreviewData({ type: 'text', content: textContent, name: fileItem.name });
+            setPreviewVisible(true);
+          } catch (e) {
+            setPreviewData({ type: 'text', content: cleanContent, name: fileItem.name });
+            setPreviewVisible(true);
+          }
+        } 
+        else {
+          const safeName = fileItem.name.replace(/\s+/g, '_');
+          const fileUri = `${FileSystem.documentDirectory}${safeName}`;
+          
+          await FileSystem.writeAsStringAsync(fileUri, cleanContent, { encoding: 'base64' });
+  
+          const canShare = await Sharing.isAvailableAsync();
+          if (canShare) {
+            await Sharing.shareAsync(fileUri, { 
+              mimeType: mime, 
+              dialogTitle: `Open ${fileItem.name}`
+            });
+          } else {
+            Alert.alert("Error", "No app available to open this file type.");
+          }
+        }
+      } catch (e) {
+        console.error("Open Error:", e.message);
+        Alert.alert("Error", "Failed to open file.");
       }
-    } catch (e) {
-      console.error("Error opening file:", e);
-      Alert.alert("Error", "Failed to open the file.");
-    }
-  };
+    };
+
+  const dataToRender = query.trim() 
+    ? items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+    : items;
 
   const renderItem = ({ item }) => {
     const isFolder = item.type === "folder";
+    const dateStr = item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'Modified recently';
 
     return (
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 16 }}>
         <Pressable
           onPress={() => (isFolder ? Alert.alert("Notice", "Please go to My Drive to browse inside folders.") : handleOpenFile(item))}
-          style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 14 }}
+          style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 16 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={{ fontSize: 18 }}>{isFolder ? "📁" : "📄"}</Text>
-            <Text style={{ fontSize: 16 }} numberOfLines={1}>{item.name}</Text>
-            {item.starred ? <Text style={{ marginLeft: 6 }}>⭐</Text> : null}
+          <MaterialIcons name={isFolder ? "folder" : "insert-drive-file"} size={28} color={isFolder ? "#5f6368" : "#4285f4"} />
+
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, color: '#1f1f1f', fontWeight: '400', marginBottom: 2 }} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {item.shared && <MaterialIcons name="people-alt" size={12} color="#5f6368" />}
+              <Text style={{ fontSize: 13, color: '#5f6368' }}>{dateStr}</Text>
+            </View>
           </View>
+
+          <MaterialIcons name="star" size={18} color="#f4b400" />
         </Pressable>
 
         <Pressable
@@ -108,9 +148,9 @@ export default function StarredScreen() {
             setSelectedItem(item);
             setActionOpen(true);
           }}
-          style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+          style={{ padding: 12 }}
         >
-          <Text style={{ fontSize: 18 }}>⋮</Text>
+          <MaterialIcons name="more-horiz" size={24} color="#5f6368" />
         </Pressable>
       </View>
     );
@@ -119,21 +159,33 @@ export default function StarredScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1a73e8" />
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <FlatList
-        data={items}
-        keyExtractor={(it) => String(it.id || it._id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
-        ListEmptyComponent={<View style={{ padding: 16 }}><Text style={{ opacity: 0.7 }}>No starred files</Text></View>}
-      />
+      
+      <TopBar query={query} setQuery={setQuery} onLogout={onLogout} />
+
+      <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <FlatList
+          data={dataToRender}
+          keyExtractor={(it) => String(it.id || it._id)}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+          ListEmptyComponent={
+            <View style={{ padding: 16 }}>
+              <Text style={{ opacity: 0.7, textAlign: 'center', marginTop: 20 }}>
+                {query.trim() ? "No results found" : "No starred files"}
+              </Text>
+            </View>
+          }
+        />
+      </View>
 
       <FileActionsSheet 
         visible={actionOpen} 

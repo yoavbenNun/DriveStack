@@ -3,11 +3,15 @@ import { Alert, ActivityIndicator, FlatList, RefreshControl, Text, View, Pressab
 import { useFocusEffect } from '@react-navigation/native';
 import { getFiles, restoreItem, deletePermanently } from "../services/api";
 import FileActionsSheet from "../components/FileActionsSheet";
+import TopBar from "../components/TopBar"; 
+import { MaterialIcons } from '@expo/vector-icons'; 
 
-export default function TrashScreen() {
+export default function TrashScreen({ onLogout }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const [query, setQuery] = useState('');
   
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -30,15 +34,26 @@ export default function TrashScreen() {
     }, [load])
   );
 
+  const dataToRender = query.trim() 
+    ? items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+    : items;
+
   const renderItem = ({ item }) => {
     const isFolder = item.type === "folder";
 
     return (
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 14, opacity: 0.6 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Text style={{ fontSize: 18 }}>{isFolder ? "📁" : "📄"}</Text>
-            <Text style={{ fontSize: 16 }} numberOfLines={1}>{item.name}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 16, opacity: 0.7 }}>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <MaterialIcons name={isFolder ? "folder" : "insert-drive-file"} size={28} color="#5f6368" />
+
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16, color: '#1f1f1f', fontWeight: '400', marginBottom: 2, textDecorationLine: 'line-through' }} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <MaterialIcons name="delete" size={12} color="#d93025" />
+              <Text style={{ fontSize: 13, color: '#d93025' }}>Deleted</Text>
+            </View>
           </View>
         </View>
 
@@ -47,9 +62,9 @@ export default function TrashScreen() {
             setSelectedItem(item);
             setActionOpen(true);
           }}
-          style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+          style={{ padding: 12 }}
         >
-          <Text style={{ fontSize: 20 }}>⋯</Text>
+          <MaterialIcons name="more-horiz" size={24} color="#5f6368" />
         </Pressable>
       </View>
     );
@@ -58,25 +73,35 @@ export default function TrashScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1a73e8" />
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <View style={{ padding: 10, backgroundColor: '#fff3cd', alignItems: 'center' }}>
-        <Text style={{ fontSize: 12, color: '#856404' }}>Items in Trash will be shown here.</Text>
-      </View>
+      
+      <TopBar query={query} setQuery={setQuery} onLogout={onLogout} />
 
-      <FlatList
-        data={items}
-        keyExtractor={(it) => String(it.id || it._id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
-        ListEmptyComponent={<View style={{ padding: 16 }}><Text style={{ opacity: 0.7 }}>Trash is empty</Text></View>}
-      />
+      <View style={{ flex: 1, backgroundColor: 'white' }}>
+        
+
+        <FlatList
+          data={dataToRender}
+          keyExtractor={(it) => String(it.id || it._id)}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#f1f3f4" }} />}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+          ListEmptyComponent={
+            <View style={{ padding: 16 }}>
+              <Text style={{ opacity: 0.7, textAlign: 'center', marginTop: 20 }}>
+                {query.trim() ? "No results found" : "Trash is empty"}
+              </Text>
+            </View>
+          }
+        />
+      </View>
 
       <FileActionsSheet 
         visible={actionOpen} 
