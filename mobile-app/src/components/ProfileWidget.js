@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, Image, Modal, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getUserById, updateUserImage, deleteUserImage } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native'; 
 
 
 const DEFAULT_AVATAR = 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png';
@@ -13,25 +14,37 @@ export default function ProfileWidget({ onLogout }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const storedUserId = await AsyncStorage.getItem('userId');
-        
-        if (storedUserId) {
-          const userData = await getUserById(storedUserId);
-          setUser(userData);
-        } else {
-          console.warn("No userId found in AsyncStorage!");
+  useFocusEffect(
+    useCallback(() => {
+      async function loadUser() {
+        try {
+          if (!user) setLoading(true); 
+          
+          const storedUserId = await AsyncStorage.getItem('userId');
+          
+          if (storedUserId) {
+            const userData = await getUserById(storedUserId);
+            setUser(userData);
+          } else {
+            console.warn("No userId found in AsyncStorage!");
+          }
+        } catch (e) {
+          console.log("Failed to load user info", e?.message);
+          
+          if (e?.response?.status === 404 || e?.response?.status === 401) {
+            Alert.alert("Session Expired", "User not found. Please log in again.");
+            if (onLogout) {
+              onLogout();
+            }
+          }
+        } finally {
+          setLoading(false);
         }
-      } catch (e) {
-        console.log("Failed to load user info", e?.message);
-      } finally {
-        setLoading(false);
       }
-    }
-    loadUser();
-    }, []);
+
+      loadUser();
+    }, [user])
+  );
 
   const avatarSrc = user?.image && user.image.trim() !== '' ? { uri: user.image } : { uri: DEFAULT_AVATAR };
 

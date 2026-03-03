@@ -10,6 +10,11 @@ exports.register = async (req, res) => {
 
     const imagePath = req.file ? req.file.path : DEFAULT_AVATAR;
 
+    /* for debugging:
+    console.log('Req Body:', req.body);
+    console.log('Req File:', req.file);
+    */
+
     if (!username || !password || !email) {
         return res.status(400).json({ error: "Username, password, and email are required" });
     }

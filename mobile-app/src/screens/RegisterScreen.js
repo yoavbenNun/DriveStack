@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, ActivityIndicator, ScrollView, TouchableOpacity, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { MaterialIcons } from '@expo/vector-icons';
 import api from '../services/api';
 
 export default function RegisterScreen({ navigation }) {
@@ -13,7 +14,6 @@ export default function RegisterScreen({ navigation }) {
   const [profileImage, setProfileImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // פונקציה לפתיחת המצלמה
   const takePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     
@@ -33,7 +33,6 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  // פונקציה לבחירה מהגלריה (מה שעשינו קודם)
   const chooseFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -43,7 +42,7 @@ export default function RegisterScreen({ navigation }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], // תיקנו את האזהרה ממקודם
+      mediaTypes: ['images'], 
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -54,7 +53,6 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  // הפונקציה שמופעלת בלחיצה על העיגול - מקפיצה תפריט בחירה
   const handleImageSelection = () => {
     Alert.alert(
       "Profile Picture",
@@ -114,69 +112,228 @@ export default function RegisterScreen({ navigation }) {
       setIsLoading(false);
     }
   };
+  // ---------------------------------------------------
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Join Drive Clone 📁</Text>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        <View style={styles.headerContainer}>
+          <MaterialIcons name="person-add" size={48} color="#1a73e8" />
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Join Drive Clone today</Text>
+        </View>
 
-      {/* אזור בחירת התמונה - עכשיו קורא לתפריט הבחירה */}
-      <View style={styles.imagePickerContainer}>
-        <TouchableOpacity style={styles.imagePicker} onPress={handleImageSelection}>
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
+        <View style={styles.imagePickerContainer}>
+          <TouchableOpacity style={styles.imagePicker} onPress={handleImageSelection} activeOpacity={0.8}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.profileImage} />
+            ) : (
+              <MaterialIcons name="person" size={48} color="#9aa0a6" />
+            )}
+            <View style={styles.cameraIconBadge}>
+              <MaterialIcons name="photo-camera" size={16} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.formContainer}>
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="badge" size={20} color="#5f6368" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Full Name"
+              placeholderTextColor="#5f6368"
+              value={formData.name}
+              onChangeText={(text) => setFormData({...formData, name: text})}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="email" size={20} color="#5f6368" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email Address"
+              placeholderTextColor="#5f6368"
+              value={formData.email}
+              onChangeText={(text) => setFormData({...formData, email: text})}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="person-outline" size={20} color="#5f6368" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              placeholderTextColor="#5f6368"
+              value={formData.username}
+              onChangeText={(text) => setFormData({...formData, username: text})}
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="lock-outline" size={20} color="#5f6368" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#5f6368"
+              value={formData.password}
+              onChangeText={(text) => setFormData({...formData, password: text})}
+              secureTextEntry
+            />
+          </View>
+          
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1a73e8" />
+            </View>
           ) : (
-            <Text style={styles.imagePickerText}>📷 Add Photo</Text>
+            <TouchableOpacity style={styles.registerButton} onPress={handleRegister} activeOpacity={0.8}>
+              <Text style={styles.registerButtonText}>Register</Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-      </View>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={formData.name}
-        onChangeText={(text) => setFormData({...formData, name: text})}
-      />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email Address"
-        value={formData.email}
-        onChangeText={(text) => setFormData({...formData, email: text})}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Login here</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Username"
-        value={formData.username}
-        onChangeText={(text) => setFormData({...formData, username: text})}
-        autoCapitalize="none"
-      />
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={formData.password}
-        onChangeText={(text) => setFormData({...formData, password: text})}
-        secureTextEntry
-      />
-      
-      {isLoading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <Button title="Register" onPress={handleRegister} />
-      )}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
-  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
-  imagePickerContainer: { alignItems: 'center', marginBottom: 25 },
-  imagePicker: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#ccc', borderStyle: 'dashed', overflow: 'hidden' },
-  profileImage: { width: '100%', height: '100%' },
-  imagePickerText: { color: '#666', fontSize: 14, textAlign: 'center' },
-  input: { height: 50, borderColor: '#ccc', borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, backgroundColor: '#fff' },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1f1f1f',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#5f6368',
+  },
+  imagePickerContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  imagePicker: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: '#f1f3f4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e8eaed',
+    position: 'relative',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 55,
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#1a73e8',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  formContainer: {
+    width: '100%',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f3f4',
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    height: 56,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+    color: '#1f1f1f',
+  },
+  registerButton: {
+    backgroundColor: '#1a73e8',
+    borderRadius: 12,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#1a73e8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  registerButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  loginText: {
+    color: '#5f6368',
+    fontSize: 15,
+  },
+  loginLink: {
+    color: '#1a73e8',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });
